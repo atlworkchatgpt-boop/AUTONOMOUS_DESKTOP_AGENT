@@ -1,0 +1,672 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#171717">
+<title>Autonomous AI</title>
+<link rel="stylesheet" href="/static/style.css?v=fullrepair1">
+<script>
+window.MathJax = {
+    tex: {
+        inlineMath: [
+            ["$", "$"],
+            ["\\(", "\\)"]
+        ],
+        displayMath: [
+            ["$", "$"],
+            ["\\[", "\\]"]
+        ]
+    },
+    options: {
+        skipHtmlTags: [
+            "script",
+            "noscript",
+            "style",
+            "textarea",
+            "pre",
+            "code"
+        ]
+    }
+};
+</script>
+
+<script
+    id="MathJax-script"
+    async
+    src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">
+</script>
+</head>
+
+<body>
+
+<div id="toast" class="toast"></div>
+
+<div id="loginView" class="login-view hidden">
+
+    <div class="login-card">
+
+        <div class="brand-mark">AI</div>
+
+        <h1>Autonomous AI</h1>
+
+        <p>
+            Your intelligent personal workspace
+        </p>
+
+        <button
+            class="google-login"
+            onclick="googleLogin()"
+        >
+            <span class="google-icon">G</span>
+            Continue with Google
+        </button>
+
+        <div class="login-note">
+            Secure account-based chat and memory
+        </div>
+
+    </div>
+
+</div>
+
+
+<div id="app" class="app hidden">
+
+    <aside
+        id="sidebar"
+        class="sidebar"
+    >
+
+        <div class="sidebar-top">
+
+            <div class="brand-row">
+
+                <div class="brand-mark small">
+                    AI
+                </div>
+
+                <div class="brand-text">
+                    Autonomous AI
+                </div>
+
+                <button
+                    class="icon-btn"
+                    onclick="toggleSidebar()"
+                    title="Collapse sidebar"
+                >
+                    ☰
+                </button>
+
+            </div>
+
+
+            <button
+                class="new-chat-button"
+                onclick="newChat()"
+            >
+                <span>＋</span>
+                New chat
+            </button>
+
+
+            <div class="search-wrap">
+
+                <span class="search-icon">
+                    ⌕
+                </span>
+
+                <input
+                    id="chatSearch"
+                    placeholder="Search chats"
+                    oninput="filterChats()"
+                >
+
+            </div>
+
+
+            <div class="section-label">
+                WORKSPACE
+            </div>
+
+
+            <button
+                class="nav-button"
+                onclick="openChess()"
+            >
+                <span>♟</span>
+                Chess
+            </button>
+
+
+            <button
+                class="nav-button"
+                onclick="document.getElementById('fileInput').click()"
+            >
+                <span>＋</span>
+                Upload file
+            </button>
+
+            <input
+                id="fileInput"
+                type="file"
+                multiple
+                hidden
+                onchange="uploadFiles()"
+            >
+
+
+            <div class="section-label history-label">
+                YOUR CHATS
+            </div>
+
+            <div id="history"></div>
+
+        </div>
+
+
+        <div class="sidebar-bottom">
+
+            <button
+                class="nav-button"
+                onclick="openMemory()"
+            >
+                <span>✦</span>
+                Memory
+            </button>
+
+
+            <button
+                class="nav-button"
+                onclick="openSettings()"
+            >
+                <span>⚙</span>
+                Settings
+            </button>
+
+
+            <div class="profile-card">
+
+                <img
+                    id="profilePicture"
+                    class="avatar"
+                    alt=""
+                >
+
+                <div class="profile-copy">
+
+                    <div
+                        id="profileName"
+                        class="profile-name"
+                    >
+                        User
+                    </div>
+
+                    <div
+                        id="profileEmail"
+                        class="profile-email"
+                    >
+                        user@example.com
+                    </div>
+
+                </div>
+
+                <button
+                    class="more-btn"
+                    onclick="logout()"
+                >
+                    ⋯
+                </button>
+
+            </div>
+
+        </div>
+
+    </aside>
+
+
+    <main class="main">
+
+        <header class="topbar">
+
+            <button
+                class="mobile-menu"
+                onclick="toggleSidebar()"
+            >
+                ☰
+            </button>
+
+            <div
+                id="chatTitle"
+                class="topbar-title"
+            >
+                New chat
+            </div>
+
+            <div class="topbar-actions">
+
+                <span
+                    id="status"
+                    class="status ready"
+                >
+                    ● READY
+                </span>
+
+                <button
+                    class="header-btn"
+                    onclick="toggleTheme()"
+                    title="Toggle theme"
+                >
+                    ◐
+                </button>
+
+                <button
+                    class="header-btn"
+                    onclick="copyConversation()"
+                    title="Copy conversation"
+                >
+                    ⧉
+                </button>
+
+            </div>
+
+        </header>
+
+
+        <section
+            id="chat"
+            class="chat"
+        >
+
+            <div
+                id="welcome"
+                class="welcome"
+            >
+
+                <div class="welcome-orb">
+                    <span>✦</span>
+                </div>
+
+                <h1>
+                    How can I help?
+                </h1>
+
+                <p>
+                    Ask, build, debug, explore or create.
+                </p>
+
+
+                <div class="suggestions">
+
+                    <button
+                        onclick="useSuggestion('Help me build a Python project')"
+                    >
+                        <strong>Build</strong>
+                        <span>Help me build a Python project</span>
+                    </button>
+
+                    <button
+                        onclick="useSuggestion('Explain this concept simply')"
+                    >
+                        <strong>Learn</strong>
+                        <span>Explain this concept simply</span>
+                    </button>
+
+                    <button
+                        onclick="useSuggestion('Help me debug my code')"
+                    >
+                        <strong>Debug</strong>
+                        <span>Help me debug my code</span>
+                    </button>
+
+                    <button
+                        onclick="openChess()"
+                    >
+                        <strong>Play</strong>
+                        <span>Play a chess game</span>
+                    </button>
+
+                </div>
+
+            </div>
+
+        </section>
+
+
+        <section class="composer-area">
+
+            <div
+                id="attachmentBar"
+                class="attachment-bar"
+            ></div>
+
+
+            <div class="composer">
+
+                <textarea
+                    id="input"
+                    rows="1"
+                    placeholder="Message Autonomous AI..."
+                ></textarea>
+
+
+                <div class="composer-toolbar">
+
+                    <div class="left-tools">
+
+                        <button
+                            class="tool-btn"
+                            onclick="document.getElementById('fileInput').click()"
+                        >
+                            ＋
+                        </button>
+
+                        <button
+                            id="voiceBtn"
+                            class="tool-btn"
+                            onclick="toggleVoice()"
+                            title="Voice"
+                        >
+                            🎙
+                        </button>
+
+                        <button
+                            class="tool-btn"
+                            onclick="recordAudio()"
+                            title="Record audio"
+                        >
+                            ●
+                        </button>
+
+                    </div>
+
+
+                    <div class="right-tools">
+
+                        <button
+                            id="stopButton"
+                            class="stop-button"
+                            onclick="stopGeneration()"
+                            disabled
+                        >
+                            Stop
+                        </button>
+
+                        <button
+                            id="sendButton"
+                            class="send-button"
+                            onclick="sendMessage()"
+                        >
+                            ↑
+                        </button>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <div class="composer-hint">
+                Enter to send · Shift+Enter for a new line · Ctrl+K search
+            </div>
+
+        </section>
+
+    </main>
+
+</div>
+
+
+<div
+    id="settingsModal"
+    class="overlay hidden"
+>
+
+    <div class="modal">
+
+        <div class="modal-head">
+
+            <div>
+                <div class="modal-title">
+                    Settings
+                </div>
+
+                <div class="modal-subtitle">
+                    Customize your AI workspace
+                </div>
+            </div>
+
+            <button
+                class="close-btn"
+                onclick="closeAllModals()"
+            >
+                ×
+            </button>
+
+        </div>
+
+
+        <div class="settings-list">
+
+            <div class="setting-row">
+
+                <div>
+                    <strong>Theme</strong>
+                    <span>Switch between dark and light mode</span>
+                </div>
+
+                <button
+                    class="setting-action"
+                    onclick="toggleTheme()"
+                >
+                    Toggle
+                </button>
+
+            </div>
+
+
+            <div class="setting-row">
+
+                <div>
+                    <strong>Chat animation</strong>
+                    <span>Show responses with a typewriter effect</span>
+                </div>
+
+                <label class="switch">
+                    <input
+                        id="animationToggle"
+                        type="checkbox"
+                        checked
+                        onchange="saveSettings()"
+                    >
+                    <span></span>
+                </label>
+
+            </div>
+
+
+            <div class="setting-row">
+
+                <div>
+                    <strong>Auto-scroll</strong>
+                    <span>Follow new assistant output automatically</span>
+                </div>
+
+                <label class="switch">
+                    <input
+                        id="scrollToggle"
+                        type="checkbox"
+                        checked
+                        onchange="saveSettings()"
+                    >
+                    <span></span>
+                </label>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<div
+    id="memoryModal"
+    class="overlay hidden"
+>
+
+    <div class="modal large">
+
+        <div class="modal-head">
+
+            <div>
+                <div class="modal-title">
+                    Memory
+                </div>
+
+                <div class="modal-subtitle">
+                    Long-term information saved for your account
+                </div>
+            </div>
+
+            <button
+                class="close-btn"
+                onclick="closeAllModals()"
+            >
+                ×
+            </button>
+
+        </div>
+
+
+        <div
+            id="memoryList"
+            class="memory-list"
+        >
+            Loading...
+        </div>
+
+
+        <div class="modal-footer">
+
+            <button
+                class="danger-btn"
+                onclick="clearMemories()"
+            >
+                Clear all memory
+            </button>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<div
+    id="chessModal"
+    class="overlay hidden"
+>
+
+    <div class="modal chess-modal">
+
+        <div class="modal-head">
+
+            <div>
+                <div class="modal-title">
+                    Chess Arena
+                </div>
+
+                <div class="modal-subtitle">
+                    Play against Stockfish
+                </div>
+            </div>
+
+            <button
+                class="close-btn"
+                onclick="closeAllModals()"
+            >
+                ×
+            </button>
+
+        </div>
+
+
+        <div
+            id="chessSetup"
+            class="chess-setup"
+        >
+
+            <label>
+                Your side
+            </label>
+
+            <select id="chessColor">
+
+                <option value="white">
+                    White
+                </option>
+
+                <option value="black">
+                    Black
+                </option>
+
+            </select>
+
+
+            <label>
+                Difficulty
+            </label>
+
+            <select id="chessDifficulty">
+
+                <option>Easy</option>
+                <option selected>Medium</option>
+                <option>Hard</option>
+                <option>Expert</option>
+                <option>Master</option>
+
+            </select>
+
+
+            <button
+                class="primary-wide"
+                onclick="startChess()"
+            >
+                Start game
+            </button>
+
+        </div>
+
+
+        <div
+            id="chessGame"
+            class="hidden"
+        >
+
+            <div
+                id="chessBoard"
+                class="chess-board"
+            ></div>
+
+            <div
+                id="chessStatus"
+                class="chess-status"
+            >
+                Your move
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<script src="/static/app.js?v=fullrepair1"></script>
+
+</body>
+</html>
+

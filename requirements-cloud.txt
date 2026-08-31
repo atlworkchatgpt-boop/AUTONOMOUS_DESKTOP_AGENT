@@ -1,0 +1,17 @@
+fastapi
+uvicorn[standard]
+python-multipart
+python-dotenv
+groq
+authlib
+httpx
+itsdangerous
+google-api-python-client
+google-auth
+google-auth-oauthlib
+google-genai
+openai
+python-chess
+psycopg[binary]
+pypdf
+python-docx

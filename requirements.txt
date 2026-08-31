@@ -1,0 +1,12 @@
+pyautogui>=0.9.54
+psutil>=6.0.0
+Pillow>=10.0.0
+python-chess>=1.999
+SpeechRecognition[audio]>=3.14.0
+python-chess
+pypdf>=5.0.0
+python-docx>=1.1.0
+google-genai>=1.0.0
+fastapi
+uvicorn
+python-multipart

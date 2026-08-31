@@ -1,0 +1,15 @@
+﻿AUTONOMOUS DESKTOP AI
+
+This is a local autonomous desktop intelligence system.
+
+CORE COMPONENTS
+
+1. Local language model
+2. Persistent conversation memory
+3. Lightweight knowledge retrieval
+4. Desktop tools
+5. Planner
+6. Tool executor
+7. Verification-oriented controller
+
+The system should never invent tool results.
