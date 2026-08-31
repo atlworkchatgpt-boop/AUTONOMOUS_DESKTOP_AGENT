@@ -3,9 +3,7 @@
 #define MyAppPublisher "Shreyansh Ray"
 
 [Setup]
-
-AppId={{7D4B9F7B-ADA1-4F75-9A31-8C5D2A1F0001}}
-
+AppId={{A8F2D7B1-5C9A-4A91-B3F0-ADA2026A0001}}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
 AppPublisher={#MyAppPublisher}
@@ -18,32 +16,16 @@ OutputBaseFilename=AutonomousAI_Setup
 
 Compression=lzma
 SolidCompression=yes
-
 WizardStyle=modern
 
 PrivilegesRequired=lowest
 
 [Files]
-
-Source: "..\installer\dist\AutonomousAI\*";
-DestDir: "{app}";
-Flags: recursesubdirs ignoreversion
-
-Source: "..\START_AUTONOMOUS_AI.bat";
-DestDir: "{app}";
-Flags: ignoreversion
+Source: "..\installer\dist\AutonomousAI\*"; DestDir: "{app}"; Flags: recursesubdirs ignoreversion
 
 [Icons]
-
-Name: "{group}\Autonomous AI";
-Filename: "{app}\AutonomousAI.exe"
-
-Name: "{commondesktop}\Autonomous AI";
-Filename: "{app}\AutonomousAI.exe"
+Name: "{group}\Autonomous AI"; Filename: "{app}\AutonomousAI\AutonomousAI.exe"
+Name: "{commondesktop}\Autonomous AI"; Filename: "{app}\AutonomousAI\AutonomousAI.exe"
 
 [Run]
-
-Filename: "{app}\AutonomousAI.exe";
-Description: "Launch Autonomous AI";
-Flags: nowait postinstall skipifsilent
-
+Filename: "{app}\AutonomousAI\AutonomousAI.exe"; Description: "Launch Autonomous AI"; Flags: nowait postinstall skipifsilent
