@@ -1,4 +1,4 @@
-import chess
+﻿import chess
 from web.guest import router as guest_router
 from web.chess_service import (
     start_game as chess_start_game,
@@ -2749,4 +2749,198 @@ async def autonomous_chess_legal_moves(
         "square": square,
         "legal_moves": legal_moves,
     }
+
+# ============================================================
+# ADA_COMFY_BRIDGE_START
+# ============================================================
+
+try:
+    from . import comfyui_service as _ada_comfy
+except Exception:
+    import comfyui_service as _ada_comfy
+
+
+@app.get("/api/comfy/status")
+async def ada_comfy_status():
+
+    return _ada_comfy.status()
+
+
+@app.get("/api/comfy/models")
+async def ada_comfy_models():
+
+    try:
+        return {
+            "ok": True,
+            "models":
+                _ada_comfy.find_checkpoints()
+        }
+
+    except Exception as e:
+
+        return {
+            "ok": False,
+            "error": str(e)
+        }
+
+
+@app.post("/api/comfy/image")
+async def ada_comfy_image(request: Request):
+
+    try:
+
+        data = await request.json()
+
+        prompt = str(
+            data.get(
+                "prompt",
+                ""
+            )
+        ).strip()
+
+        negative = str(
+            data.get(
+                "negative",
+                ""
+            )
+        )
+
+        width = int(
+            data.get(
+                "width",
+                512
+            )
+        )
+
+        height = int(
+            data.get(
+                "height",
+                512
+            )
+        )
+
+        if not prompt:
+
+            return {
+                "ok": False,
+                "error":
+                    "Image prompt is required."
+            }
+
+        return _ada_comfy.generate_image(
+            prompt,
+            negative,
+            width,
+            height
+        )
+
+    except Exception as e:
+
+        return {
+            "ok": False,
+            "error": str(e)
+        }
+
+
+@app.post("/api/comfy/video")
+async def ada_comfy_video(request: Request):
+
+    try:
+
+        data = await request.json()
+
+        prompt = str(
+            data.get(
+                "prompt",
+                ""
+            )
+        ).strip()
+
+        if not prompt:
+
+            return {
+                "ok": False,
+                "error":
+                    "Video prompt is required."
+            }
+
+        return _ada_comfy.generate_video(
+            prompt
+        )
+
+    except Exception as e:
+
+        return {
+            "ok": False,
+            "error": str(e)
+        }
+
+
+@app.get("/api/comfy/history/{prompt_id}")
+async def ada_comfy_history(
+    prompt_id: str
+):
+
+    try:
+
+        return {
+            "ok": True,
+            "history":
+                _ada_comfy.history(
+                    prompt_id
+                )
+        }
+
+    except Exception as e:
+
+        return {
+            "ok": False,
+            "error": str(e)
+        }
+
+
+@app.get("/api/comfy/files/{prompt_id}")
+async def ada_comfy_files(
+    prompt_id: str
+):
+
+    try:
+
+        return {
+            "ok": True,
+            "files":
+                _ada_comfy.find_generated_files(
+                    prompt_id
+                )
+        }
+
+    except Exception as e:
+
+        return {
+            "ok": False,
+            "error": str(e)
+        }
+
+
+# ============================================================
+# ADA_COMFY_BRIDGE_END
+# ============================================================
+
+# ============================================================
+# ADA CLOUD MEDIA ENGINE
+# ============================================================
+
+try:
+    from cloud_media_router import router as cloud_media_router
+    app.include_router(cloud_media_router)
+except Exception as _cloud_media_error:
+    print("[CLOUD MEDIA] Router unavailable:", _cloud_media_error)
+
+
+# ADA CHESS ENGINE
+try:
+    from chess_router import router as ada_chess_router
+    app.include_router(ada_chess_router)
+except Exception as e:
+    print("[CHESS]", e)
 
