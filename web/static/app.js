@@ -7477,29 +7477,14 @@ window.addEventListener(
 
 
     async function startupSecurityCheck() {
-
+        // Startup authentication is Google sign-in only.
+        // Do not start action-password setup or verification here.
+        // Protected computer actions remain separately authorized.
         addSecuritySetting();
-
-        const status =
-            await securityStatus();
-
-        if (
-            status &&
-            !status.configured
-        ) {
-
-            setTimeout(
-                () => setupPassword(false),
-                500
-            );
-        }
     }
 
-
     if (
-        document.readyState ===
-        "loading"
-    ) {
+        document.readyState === "loading" {
 
         document.addEventListener(
             "DOMContentLoaded",
