@@ -7518,3 +7518,553 @@ window.addEventListener(
 })();
 
 // ===== END ADA ACTION PASSWORD UI V1 =====
+
+/* ============================================================
+   ADA CHESS FINAL PERFORMANCE + CONTROLS FIX
+   ============================================================ */
+(function () {
+    "use strict";
+
+    let adaChessBusy = false;
+
+    function gameId() {
+        return (
+            window.autonomousFinalChessId ||
+            window.chessGameId ||
+            null
+        );
+    }
+
+    function status(text) {
+        const el = document.getElementById("chessStatus");
+        if (el) el.textContent = text;
+    }
+
+    async function api(url, options = {}) {
+        const response = await fetch(url, {
+            credentials: "same-origin",
+            cache: "no-store",
+            ...options,
+            headers: {
+                "Content-Type": "application/json",
+                ...(options.headers || {})
+            }
+        });
+
+        let data = {};
+        try {
+            data = await response.json();
+        } catch (_) {}
+
+        if (!response.ok || data.ok === false) {
+            throw new Error(
+                data.detail ||
+                data.error ||
+                "Chess request failed."
+            );
+        }
+
+        return data;
+    }
+
+    /*
+     * Fast board refresh.
+     * Never wait for a visual animation before sending
+     * the actual chess move to the server.
+     */
+    async function refresh() {
+        const id = gameId();
+        if (!id) return;
+
+        const data = await api(
+            "/api/autonomous/chess/state?game_id=" +
+            encodeURIComponent(id)
+        );
+
+        window.autonomousFinalFen = data.fen;
+        window.autonomousFinalChessId = data.game_id;
+        window.autonomousFinalChessColor = data.color;
+        window.adaChessLastMove =
+            data.moves && data.moves.length
+                ? data.moves[data.moves.length - 1]
+                : null;
+
+        window.autonomousFinalSelected = null;
+        window.autonomousFinalLegal = [];
+
+        if (typeof window.adaChessSetDifficulty === "function") {
+            window.adaChessSetDifficulty(
+                data.difficulty || "Medium"
+            );
+        }
+
+        window.adaChessCheckSquare =
+            data.check ? data.check_square : null;
+
+        if (typeof window.adaRenderChess === "function") {
+            window.adaRenderChess(
+                data.fen,
+                data.legal_moves || []
+            );
+        } else if (typeof window.drawBoard === "function") {
+            await window.drawBoard();
+        }
+
+        if (data.game_over) {
+            status(
+                "Game over: " +
+                (data.result || "finished")
+            );
+        } else if (data.check) {
+            status("CHECK — the king is under attack.");
+        } else {
+            status("Your move");
+        }
+
+        return data;
+    }
+
+    /*
+     * RESTART
+     */
+    window.adaChessRestart = async function () {
+        if (adaChessBusy) return;
+
+        adaChessBusy = true;
+        status("Starting new game...");
+
+        try {
+            const color =
+                typeof window.adaChessColor === "function"
+                    ? window.adaChessColor()
+                    : (
+                        document.getElementById("chessColor")?.value ||
+                        "white"
+                    );
+
+            const difficulty =
+                typeof window.adaChessDifficulty === "function"
+                    ? window.adaChessDifficulty()
+                    : (
+                        document.getElementById("chessDifficulty")?.value ||
+                        "Medium"
+                    );
+
+            const data = await api(
+                "/api/autonomous/chess/restart",
+                {
+                    method: "POST",
+                    body: JSON.stringify({
+                        color,
+                        difficulty
+                    })
+                }
+            );
+
+            window.autonomousFinalChessId = data.game_id;
+            window.autonomousFinalFen = data.fen;
+            window.autonomousFinalChessColor = data.color;
+            window.adaChessLastMove = null;
+            window.adaPreviousChessMove = null;
+            window.autonomousFinalSelected = null;
+            window.autonomousFinalLegal = [];
+            window.autonomousFinalChessOver = false;
+
+            if (typeof window.adaChessSetDifficulty === "function") {
+                window.adaChessSetDifficulty(
+                    data.difficulty || difficulty
+                );
+            }
+
+            await refresh();
+            status("New chess game started.");
+        } catch (error) {
+            status("Restart error: " + error.message);
+        } finally {
+            adaChessBusy = false;
+        }
+    };
+
+    /*
+     * DRAW
+     */
+    window.adaChessDraw = async function () {
+        if (adaChessBusy) return;
+
+        const id = gameId();
+
+        if (!id) {
+            status("No active chess game.");
+            return;
+        }
+
+        if (!window.confirm("Offer a draw and end this game?")) {
+            return;
+        }
+
+        adaChessBusy = true;
+        status("Ending game as a draw...");
+
+        try {
+            const data = await api(
+                "/api/autonomous/chess/draw",
+                {
+                    method: "POST",
+                    body: JSON.stringify({
+                        game_id: id
+                    })
+                }
+            );
+
+            window.autonomousFinalSelected = null;
+            window.autonomousFinalLegal = [];
+            window.autonomousFinalChessOver = true;
+            window.autonomousFinalFen = data.fen;
+
+            if (typeof window.adaRenderChess === "function") {
+                window.adaRenderChess(data.fen, []);
+            } else if (typeof window.drawBoard === "function") {
+                await window.drawBoard();
+            }
+
+            status("Game drawn.");
+        } catch (error) {
+            status("Draw error: " + error.message);
+        } finally {
+            adaChessBusy = false;
+        }
+    };
+
+    /*
+     * RESIGN
+     */
+    window.adaChessResign = async function () {
+        if (adaChessBusy) return;
+
+        const id = gameId();
+
+        if (!id) {
+            status("No active chess game.");
+            return;
+        }
+
+        if (!window.confirm("Resign this chess game?")) {
+            return;
+        }
+
+        adaChessBusy = true;
+        status("Resigning...");
+
+        try {
+            const data = await api(
+                "/api/autonomous/chess/resign",
+                {
+                    method: "POST",
+                    body: JSON.stringify({
+                        game_id: id
+                    })
+                }
+            );
+
+            window.autonomousFinalSelected = null;
+            window.autonomousFinalLegal = [];
+            window.autonomousFinalChessOver = true;
+            window.autonomousFinalFen = data.fen;
+
+            if (typeof window.adaRenderChess === "function") {
+                window.adaRenderChess(data.fen, []);
+            } else if (typeof window.drawBoard === "function") {
+                await window.drawBoard();
+            }
+
+            status(
+                "You resigned. Result: " +
+                (data.result || "0-1")
+            );
+        } catch (error) {
+            status("Resign error: " + error.message);
+        } finally {
+            adaChessBusy = false;
+        }
+    };
+
+    /*
+     * CHANGE COMPUTER
+     *
+     * Change difficulty immediately on the current game.
+     * No restart required.
+     */
+    window.adaChessChangeComputer = async function () {
+        if (adaChessBusy) return;
+
+        const id = gameId();
+
+        if (!id) {
+            status("Start a chess game first.");
+            return;
+        }
+
+        const levels = [
+            "Easy",
+            "Medium",
+            "Hard",
+            "Expert",
+            "Master"
+        ];
+
+        const select =
+            document.getElementById("chessDifficulty");
+
+        const current =
+            select?.value ||
+            (
+                typeof window.adaChessDifficulty === "function"
+                    ? window.adaChessDifficulty()
+                    : "Medium"
+            );
+
+        let index = levels.indexOf(current);
+
+        if (index < 0) index = 1;
+
+        const next =
+            levels[(index + 1) % levels.length];
+
+        adaChessBusy = true;
+        status("Changing computer to " + next + "...");
+
+        try {
+            const data = await api(
+                "/api/autonomous/chess/settings",
+                {
+                    method: "POST",
+                    body: JSON.stringify({
+                        game_id: id,
+                        difficulty: next
+                    })
+                }
+            );
+
+            if (select) {
+                select.value = data.difficulty || next;
+            }
+
+            if (typeof window.adaChessSetDifficulty === "function") {
+                window.adaChessSetDifficulty(
+                    data.difficulty || next
+                );
+            }
+
+            status(
+                "Computer changed to " +
+                (data.difficulty || next) +
+                "."
+            );
+        } catch (error) {
+            status(
+                "Computer settings error: " +
+                error.message
+            );
+        } finally {
+            adaChessBusy = false;
+        }
+    };
+
+    /*
+     * Replace the slow visual animation with a short,
+     * non-blocking animation. The server move is NEVER
+     * delayed by this.
+     */
+    window.adaChessAnimateMove = function (from, to, callback) {
+        try {
+            if (
+                typeof window.adaChessAnimationEnabled !==
+                "undefined" &&
+                !window.adaChessAnimationEnabled
+            ) {
+                if (callback) callback();
+                return;
+            }
+
+            const board =
+                document.getElementById("chessBoard");
+
+            if (!board) {
+                if (callback) callback();
+                return;
+            }
+
+            const fromCell =
+                board.querySelector(
+                    '[data-square="' + from + '"]'
+                );
+
+            const toCell =
+                board.querySelector(
+                    '[data-square="' + to + '"]'
+                );
+
+            if (!fromCell || !toCell) {
+                if (callback) callback();
+                return;
+            }
+
+            const piece =
+                fromCell.querySelector(
+                    ".autonomous-final-piece"
+                ) ||
+                fromCell.querySelector(
+                    ".autonomous-chess-piece"
+                );
+
+            if (!piece) {
+                if (callback) callback();
+                return;
+            }
+
+            const a =
+                fromCell.getBoundingClientRect();
+
+            const b =
+                toCell.getBoundingClientRect();
+
+            const ghost =
+                piece.cloneNode(true);
+
+            ghost.className =
+                "autonomous-chess-flying-piece";
+
+            ghost.style.position = "fixed";
+            ghost.style.left = a.left + "px";
+            ghost.style.top = a.top + "px";
+            ghost.style.width = a.width + "px";
+            ghost.style.height = a.height + "px";
+            ghost.style.zIndex = "100000";
+            ghost.style.pointerEvents = "none";
+            ghost.style.transition =
+                "transform 120ms cubic-bezier(.2,.8,.2,1)";
+
+            document.body.appendChild(ghost);
+
+            requestAnimationFrame(function () {
+                ghost.style.transform =
+                    "translate(" +
+                    (b.left - a.left) +
+                    "px," +
+                    (b.top - a.top) +
+                    "px)";
+            });
+
+            setTimeout(function () {
+                ghost.remove();
+                if (callback) callback();
+            }, 125);
+
+        } catch (_) {
+            if (callback) callback();
+        }
+    };
+
+    /*
+     * Prevent double-clicks / multiple simultaneous
+     * player moves.
+     */
+    const originalFinalMove =
+        window.adaChessMove;
+
+    if (typeof originalFinalMove === "function") {
+        window.adaChessMove = async function () {
+            if (adaChessBusy) return;
+
+            adaChessBusy = true;
+
+            try {
+                return await originalFinalMove.apply(
+                    this,
+                    arguments
+                );
+            } finally {
+                adaChessBusy = false;
+            }
+        };
+    }
+
+    /*
+     * Make dynamically-created chess buttons always
+     * use the final handlers.
+     */
+    function bindChessButtons() {
+        const board =
+            document.getElementById("chessBoard");
+
+        const root =
+            document.getElementById("chessGame") ||
+            document.getElementById("chessModal");
+
+        if (!root) return;
+
+        const buttons =
+            root.querySelectorAll("button");
+
+        buttons.forEach(function (button) {
+            const text =
+                (button.textContent || "")
+                    .trim()
+                    .toLowerCase();
+
+            if (
+                text.includes("restart") ||
+                text.includes("new game")
+            ) {
+                button.onclick =
+                    window.adaChessRestart;
+            }
+
+            if (text === "draw") {
+                button.onclick =
+                    window.adaChessDraw;
+            }
+
+            if (
+                text.includes("resign")
+            ) {
+                button.onclick =
+                    window.adaChessResign;
+            }
+
+            if (
+                text.includes("change computer") ||
+                text.includes("change difficulty")
+            ) {
+                button.onclick =
+                    window.adaChessChangeComputer;
+            }
+        });
+    }
+
+    window.addEventListener(
+        "load",
+        function () {
+            bindChessButtons();
+
+            setTimeout(
+                bindChessButtons,
+                100
+            );
+
+            setTimeout(
+                bindChessButtons,
+                500
+            );
+        }
+    );
+
+    /*
+     * IMPORTANT:
+     * Do not run a permanent MutationObserver over the
+     * entire page just to find chess buttons.
+     */
+    setTimeout(bindChessButtons, 1000);
+
+})();
+ /* ADA_CHESS_FINAL_PERFORMANCE_FIX_END */
