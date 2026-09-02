@@ -3515,8 +3515,7 @@ window.addEventListener(
                         ghost.remove();
                         resolve();
 
-                    },
-                    340
+                    }, 0
                 );
             }
         );
@@ -3810,56 +3809,7 @@ window.addEventListener(
 
 
 
-/* ADA_ONE_CLEAN_CONTROLLER_START */
-(function(){
-  "use strict";
-  function chatBox(){
-    return document.getElementById("chat") || document.querySelector(".chat") || document.querySelector(".messages");
-  }
-  function bottom(){ const c=chatBox(); if(c) requestAnimationFrame(()=>{c.scrollTop=c.scrollHeight;}); }
-  window.adaScrollBottom=bottom;
-  window.addEventListener("load",()=>{ bottom(); setTimeout(bottom,250); });
-  window.addEventListener("resize",bottom);
-  const c=chatBox();
-  if(c){ new MutationObserver(bottom).observe(c,{childList:true,subtree:true,characterData:true}); }
 
-  async function history(){
-    try{
-      const r=await fetch("/api/v2/chess/history",{cache:"no-store"});
-      const d=await r.json();
-      if(!r.ok) throw new Error(d.detail||"Could not load chess history");
-      let old=document.getElementById("adaHistoryModal"); if(old) old.remove();
-      const overlay=document.createElement("div"); overlay.id="adaHistoryModal"; overlay.className="ada-history-overlay";
-      const card=document.createElement("div"); card.className="ada-history-card";
-      card.innerHTML='<button class="ada-history-close" type="button">Close</button><h2>Chess history</h2><div id="adaHistoryRows"></div>';
-      overlay.appendChild(card); document.body.appendChild(overlay);
-      card.querySelector(".ada-history-close").onclick=()=>overlay.remove();
-      const rows=card.querySelector("#adaHistoryRows");
-      if(!d.games.length){ rows.textContent="No saved games yet."; return; }
-      d.games.forEach(g=>{
-        const row=document.createElement("div"); row.className="ada-history-row";
-        const info=document.createElement("div"); info.textContent=`${g.started_at||""} | ${g.player_color} | ${g.difficulty} | ${g.result||"In progress"}`;
-        const b=document.createElement("button"); b.type="button"; b.textContent="Review + analysis";
-        b.onclick=async()=>{
-          const rr=await fetch(`/api/v2/chess/analyze/${encodeURIComponent(g.game_id)}`); const x=await rr.json();
-          if(!rr.ok){ alert(x.detail||"Analysis failed"); return; }
-          alert(x.analysis_text || JSON.stringify(x,null,2));
-        };
-        row.append(info,b); rows.appendChild(row);
-      });
-    }catch(e){ alert("Chess history: "+e.message); }
-  }
-  window.openChessHistory=history;
-  window.addEventListener("load",()=>{
-    const modal=document.getElementById("chessModal");
-    if(modal && !document.getElementById("adaChessHistoryButton")){
-      const b=document.createElement("button"); b.id="adaChessHistoryButton"; b.type="button"; b.textContent="History / Analysis"; b.className="secondary-button";
-      b.onclick=history;
-      const status=document.getElementById("chessStatus"); (status?.parentElement || modal).appendChild(b);
-    }
-  });
-})();
-/* ADA_ONE_CLEAN_CONTROLLER_END */
 
 /* ============================================================
    FINAL CHESS HISTORY REVIEW OVERRIDE
@@ -8053,3 +8003,61 @@ window.addEventListener(
 
 })();
  /* ADA_CHESS_FINAL_PERFORMANCE_FIX_END */
+
+
+/* ADA_FINAL_CHESS_BUTTON_AND_PERFORMANCE_FIX */
+(function(){
+    "use strict";
+
+    let chessActionBusy = false;
+
+    function bindChessButton(id, handlerName){
+        const button = document.getElementById(id);
+        if(!button || button.dataset.adaBound === "1") return;
+
+        button.dataset.adaBound = "1";
+
+        button.addEventListener("click", async function(event){
+            event.preventDefault();
+            event.stopPropagation();
+
+            if(chessActionBusy) return;
+            if(typeof window[handlerName] !== "function"){
+                console.error("ADA Chess handler missing:", handlerName);
+                return;
+            }
+
+            chessActionBusy = true;
+            button.disabled = true;
+
+            try{
+                await window[handlerName]();
+            }catch(error){
+                console.error("Chess control error:", error);
+            }finally{
+                chessActionBusy = false;
+                button.disabled = false;
+            }
+        });
+    }
+
+    function bind(){
+        bindChessButton("adaChessRestartButton","adaChessRestart");
+        bindChessButton("adaChessDrawButton","adaChessDraw");
+        bindChessButton("adaChessResignButton","adaChessResign");
+        bindChessButton("adaChessChangeComputerButton","adaChessChangeComputer");
+
+        bindChessButton("chessRestartButton","adaChessRestart");
+        bindChessButton("chessDrawButton","adaChessDraw");
+        bindChessButton("chessResignButton","adaChessResign");
+        bindChessButton("chessChangeComputerButton","adaChessChangeComputer");
+    }
+
+    if(document.readyState === "loading"){
+        document.addEventListener("DOMContentLoaded",bind,{once:true});
+    }else{
+        bind();
+    }
+
+    window.addEventListener("load",bind,{once:false});
+})();
