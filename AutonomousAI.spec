@@ -1,19 +1,19 @@
 # -*- mode: python ; coding: utf-8 -*-
 from PyInstaller.utils.hooks import collect_all
 
-datas = [('C:/Users/ADMIN/Desktop/ada_test_project/web', 'web')]
+datas = [('web/static', 'web/static'), ('web', 'web'), ('agent', 'agent'), ('config', 'config'), ('database', 'database'), ('gui', 'gui'), ('tools', 'tools')]
 binaries = []
 hiddenimports = []
-tmp_ret = collect_all('fastapi')
+tmp_ret = collect_all('PySide6')
 datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
-tmp_ret = collect_all('starlette')
+tmp_ret = collect_all('PySide6_Essentials')
 datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
-tmp_ret = collect_all('uvicorn')
+tmp_ret = collect_all('PySide6_Addons')
 datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 
 
 a = Analysis(
-    ['C:/Users/ADMIN/Desktop/ada_test_project/installer/ada_launcher.py'],
+    ['desktop_app/local_app.py'],
     pathex=[],
     binaries=binaries,
     datas=datas,
@@ -37,7 +37,7 @@ exe = EXE(
     bootloader_ignore_signals=False,
     strip=False,
     upx=True,
-    console=True,
+    console=False,
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,

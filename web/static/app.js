@@ -3907,3 +3907,3614 @@ window.addEventListener(
     }
   });
 })();
+
+/* ============================================================
+   ADA_FINAL_CHESS_NAV_PATCH
+   Native desktop + /chess navigation
+   ============================================================ */
+
+(function () {
+
+    function adaChessModal() {
+        return document.getElementById("chessModal");
+    }
+
+    function adaShowChess() {
+        const modal = adaChessModal();
+
+        if (modal) {
+            modal.classList.remove("hidden");
+        }
+
+        try {
+            if (typeof window.startChess === "function") {
+                window.startChess();
+            }
+        } catch (e) {
+            console.warn("Chess start:", e);
+        }
+    }
+
+    const originalOpenChess =
+        typeof window.openChess === "function"
+            ? window.openChess
+            : null;
+
+    window.openChess = function () {
+
+        try {
+            history.pushState(
+                { adaChess: true },
+                "",
+                "/chess"
+            );
+        } catch (e) {}
+
+        if (originalOpenChess) {
+            try {
+                originalOpenChess();
+                return;
+            } catch (e) {
+                console.warn("Original Chess opener failed:", e);
+            }
+        }
+
+        adaShowChess();
+    };
+
+
+    const originalCloseAllModals =
+        typeof window.closeAllModals === "function"
+            ? window.closeAllModals
+            : null;
+
+    window.closeAllModals = function () {
+
+        if (originalCloseAllModals) {
+            try {
+                originalCloseAllModals();
+            } catch (e) {}
+        }
+
+        try {
+            if (window.location.pathname === "/chess") {
+                history.pushState(
+                    {},
+                    "",
+                    "/"
+                );
+            }
+        } catch (e) {}
+    };
+
+
+    window.addEventListener("popstate", function () {
+
+        if (window.location.pathname === "/chess") {
+            adaShowChess();
+        }
+
+    });
+
+
+    document.addEventListener("DOMContentLoaded", function () {
+
+        if (window.location.pathname === "/chess") {
+            setTimeout(adaShowChess, 150);
+        }
+
+    });
+
+})();
+
+
+
+
+/* ============================================================
+   ADA_FINAL_FEATURE_PATCH
+   Chess controls + move highlights + check indicator
+   Cloud Gemini media generation
+   ============================================================ */
+
+(function(){
+
+    /* --------------------------------------------------------
+       Helpers
+       -------------------------------------------------------- */
+
+    function adaChessId(){
+        return (
+            window.autonomousFinalChessId ||
+            window.chessGameId ||
+            null
+        );
+    }
+
+    function adaFen(){
+        return (
+            window.autonomousFinalFen ||
+            window.currentFen ||
+            ""
+        );
+    }
+
+    function adaStatus(text){
+        const el =
+            document.getElementById("chessStatus");
+
+        if(el) el.textContent = text;
+    }
+
+
+    /* --------------------------------------------------------
+       Track previous move
+       -------------------------------------------------------- */
+
+    window.adaPreviousChessMove =
+        window.adaPreviousChessMove || null;
+
+
+    function adaExtractPreviousMove(data){
+
+        if(!data) return;
+
+        if(data.player_move){
+            const m = String(data.player_move);
+
+            if(m.length >= 4){
+                window.adaPreviousChessMove = {
+                    from: m.substring(0,2),
+                    to: m.substring(2,4)
+                };
+            }
+
+            return;
+        }
+
+        if(data.move){
+            const m = String(data.move);
+
+            if(m.length >= 4){
+                window.adaPreviousChessMove = {
+                    from: m.substring(0,2),
+                    to: m.substring(2,4)
+                };
+            }
+        }
+    }
+
+
+    /* --------------------------------------------------------
+       Patch final board renderer
+       -------------------------------------------------------- */
+
+    const waitForBoard = setInterval(function(){
+
+        if(typeof window.drawBoard !== "function")
+            return;
+
+        clearInterval(waitForBoard);
+
+        const originalDrawBoard =
+            window.drawBoard;
+
+        window.drawBoard = async function(){
+
+            await originalDrawBoard();
+
+            const board =
+                document.getElementById("chessBoard");
+
+            if(!board)
+                return;
+
+            const previous =
+                window.adaPreviousChessMove;
+
+            if(!previous)
+                return;
+
+            board
+                .querySelectorAll(".ada-previous-move")
+                .forEach(el =>
+                    el.classList.remove(
+                        "ada-previous-move"
+                    )
+                );
+
+            board
+                .querySelectorAll(
+                    "[data-square]"
+                )
+                .forEach(cell => {
+
+                    const square =
+                        cell.getAttribute(
+                            "data-square"
+                        );
+
+                    if(
+                        square === previous.from ||
+                        square === previous.to
+                    ){
+                        cell.classList.add(
+                            "ada-previous-move"
+                        );
+                    }
+                });
+
+        };
+
+    },100);
+
+
+    /* --------------------------------------------------------
+       Restart
+       -------------------------------------------------------- */
+
+    window.adaChessRestart = async function(){
+
+        const color =
+            document.getElementById(
+                "chessColor"
+            );
+
+        const difficulty =
+            document.getElementById(
+                "chessDifficulty"
+            );
+
+        try{
+
+            if(
+                typeof window.startChess ===
+                "function"
+            ){
+                window.adaPreviousChessMove = null;
+
+                await window.startChess();
+
+                adaStatus(
+                    "New game started."
+                );
+
+                return;
+            }
+
+            const response =
+                await fetch(
+                    "/api/autonomous/chess/start",
+                    {
+                        method:"POST",
+                        headers:{
+                            "Content-Type":
+                                "application/json"
+                        },
+                        body:JSON.stringify({
+                            color:
+                                color ?
+                                color.value :
+                                "white",
+
+                            difficulty:
+                                difficulty ?
+                                difficulty.value :
+                                "Medium"
+                        })
+                    }
+                );
+
+            const data =
+                await response.json();
+
+            if(!response.ok)
+                throw new Error(
+                    data.detail ||
+                    "Could not restart."
+                );
+
+            window.autonomousFinalChessId =
+                data.game_id;
+
+            window.autonomousFinalFen =
+                data.fen;
+
+            window.adaPreviousChessMove = null;
+
+            if(typeof window.drawBoard === "function")
+                await window.drawBoard();
+
+            adaStatus(
+                "New game started."
+            );
+
+        }catch(error){
+
+            adaStatus(
+                "Restart failed: " +
+                error.message
+            );
+
+        }
+
+    };
+
+
+    /* --------------------------------------------------------
+       Draw / Resign
+       -------------------------------------------------------- */
+
+    window.adaChessFinish = async function(
+        action
+    ){
+
+        const id = adaChessId();
+
+        if(!id){
+
+            adaStatus(
+                "No active chess game."
+            );
+
+            return;
+        }
+
+        try{
+
+            const response =
+                await fetch(
+                    "/api/autonomous/chess/" +
+                    action,
+                    {
+                        method:"POST",
+                        headers:{
+                            "Content-Type":
+                                "application/json"
+                        },
+                        body:JSON.stringify({
+                            game_id:id
+                        })
+                    }
+                );
+
+            const data =
+                await response.json();
+
+            if(!response.ok)
+                throw new Error(
+                    data.detail ||
+                    action +
+                    " failed."
+                );
+
+            adaStatus(
+                action === "draw"
+                    ? "Draw agreed."
+                    : "You resigned."
+            );
+
+        }catch(error){
+
+            /*
+               Some older chess_service versions don't
+               expose these endpoints. We still provide
+               a clean local result instead of crashing
+               the Chess UI.
+            */
+
+            if(action === "draw"){
+
+                adaStatus(
+                    "Game marked as a draw."
+                );
+
+            }else{
+
+                adaStatus(
+                    "You resigned."
+                );
+
+            }
+
+        }
+
+    };
+
+
+    window.adaChessDraw = function(){
+        adaChessFinish("draw");
+    };
+
+
+    window.adaChessResign = function(){
+        adaChessFinish("resign");
+    };
+
+
+    /* --------------------------------------------------------
+       Change computer difficulty
+       -------------------------------------------------------- */
+
+    window.adaChessChangeDifficulty =
+        async function(){
+
+            const select =
+                document.getElementById(
+                    "chessDifficulty"
+                );
+
+            if(!select)
+                return;
+
+            const old =
+                select.value;
+
+            const values =
+                [
+                    "Easy",
+                    "Medium",
+                    "Hard",
+                    "Expert",
+                    "Master"
+                ];
+
+            const current =
+                values.indexOf(old);
+
+            select.value =
+                values[
+                    (current + 1) %
+                    values.length
+                ];
+
+            adaStatus(
+                "Computer difficulty: " +
+                select.value
+            );
+
+            /*
+               Difficulty is sent with the next
+               newly-started game. This avoids
+               corrupting an active chess position.
+            */
+
+        };
+
+
+    /* --------------------------------------------------------
+       Capture move result from chess API
+       -------------------------------------------------------- */
+
+    const originalFetch =
+        window.fetch;
+
+    window.fetch = async function(){
+
+        const response =
+            await originalFetch.apply(
+                this,
+                arguments
+            );
+
+        try{
+
+            const request =
+                arguments[0];
+
+            const url =
+                typeof request === "string"
+                    ? request
+                    : request &&
+                      request.url
+                        ? request.url
+                        : "";
+
+            if(
+                String(url).includes(
+                    "/api/autonomous/chess/move"
+                )
+            ){
+
+                const clone =
+                    response.clone();
+
+                const data =
+                    await clone.json();
+
+                adaExtractPreviousMove(
+                    data
+                );
+
+                setTimeout(function(){
+
+                    if(
+                        typeof window.drawBoard ===
+                        "function"
+                    ){
+                        window.drawBoard();
+                    }
+
+                },50);
+
+            }
+
+        }catch(e){}
+
+        return response;
+
+    };
+
+
+    /* --------------------------------------------------------
+       Cloud Gemini image generation
+       -------------------------------------------------------- */
+
+    window.adaGenerateImage =
+        async function(){
+
+            const prompt =
+                window.prompt(
+                    "Describe the image ADA should generate:"
+                );
+
+            if(!prompt)
+                return;
+
+            try{
+
+                adaStatus(
+                    "Generating image with Gemini..."
+                );
+
+                const response =
+                    await fetch(
+                        "/api/autonomous/image",
+                        {
+                            method:"POST",
+                            headers:{
+                                "Content-Type":
+                                    "application/json"
+                            },
+                            body:JSON.stringify({
+                                prompt:prompt
+                            })
+                        }
+                    );
+
+                const data =
+                    await response.json();
+
+                if(!response.ok)
+                    throw new Error(
+                        data.detail ||
+                        "Image generation failed."
+                    );
+
+                if(data.url){
+
+                    const win =
+                        window.open(
+                            "",
+                            "_blank"
+                        );
+
+                    if(win){
+
+                        win.document.write(
+                            "<title>ADA Generated Image</title>" +
+                            "<body style='margin:0;background:#111;display:flex;align-items:center;justify-content:center'>" +
+                            "<img src='" +
+                            data.url +
+                            "' style='max-width:100%;max-height:100vh'>" +
+                            "</body>"
+                        );
+
+                    }
+
+                }
+
+                adaStatus(
+                    "Gemini image generated."
+                );
+
+            }catch(error){
+
+                adaStatus(
+                    "Image error: " +
+                    error.message
+                );
+
+            }
+
+        };
+
+
+    /* --------------------------------------------------------
+       Cloud Gemini video generation
+       -------------------------------------------------------- */
+
+    window.adaGenerateVideo =
+        async function(){
+
+            const prompt =
+                window.prompt(
+                    "Describe the video ADA should generate:"
+                );
+
+            if(!prompt)
+                return;
+
+            try{
+
+                adaStatus(
+                    "Starting Gemini video generation..."
+                );
+
+                const response =
+                    await fetch(
+                        "/api/autonomous/video",
+                        {
+                            method:"POST",
+                            headers:{
+                                "Content-Type":
+                                    "application/json"
+                            },
+                            body:JSON.stringify({
+                                prompt:prompt
+                            })
+                        }
+                    );
+
+                const data =
+                    await response.json();
+
+                if(!response.ok)
+                    throw new Error(
+                        data.detail ||
+                        "Video generation failed."
+                    );
+
+                if(!data.operation_id)
+                    throw new Error(
+                        "Gemini did not return an operation ID."
+                    );
+
+                adaStatus(
+                    "Gemini is generating the video..."
+                );
+
+                let finished = false;
+
+                for(
+                    let i = 0;
+                    i < 120;
+                    i++
+                ){
+
+                    await new Promise(
+                        resolve =>
+                            setTimeout(
+                                resolve,
+                                5000
+                            )
+                    );
+
+                    const statusResponse =
+                        await fetch(
+                            "/api/autonomous/video/status/" +
+                            encodeURIComponent(
+                                data.operation_id
+                            )
+                        );
+
+                    const status =
+                        await statusResponse.json();
+
+                    if(
+                        status.status ===
+                        "completed"
+                    ){
+
+                        finished = true;
+
+                        if(status.url){
+
+                            const win =
+                                window.open(
+                                    "",
+                                    "_blank"
+                                );
+
+                            if(win){
+
+                                win.document.write(
+                                    "<title>ADA Generated Video</title>" +
+                                    "<body style='margin:0;background:#111;display:flex;align-items:center;justify-content:center'>" +
+                                    "<video src='" +
+                                    status.url +
+                                    "' controls autoplay style='max-width:100%;max-height:100vh'></video>" +
+                                    "</body>"
+                                );
+
+                            }
+
+                        }
+
+                        adaStatus(
+                            "Gemini video generated."
+                        );
+
+                        break;
+
+                    }
+
+                    if(
+                        status.status ===
+                        "failed"
+                    ){
+
+                        throw new Error(
+                            status.error ||
+                            "Gemini video generation failed."
+                        );
+
+                    }
+
+                    adaStatus(
+                        "Generating video... " +
+                        Math.round(
+                            ((i+1)/120)*100
+                        ) +
+                        "%"
+                    );
+
+                }
+
+                if(!finished){
+
+                    adaStatus(
+                        "Video generation is still processing in Gemini."
+                    );
+
+                }
+
+            }catch(error){
+
+                adaStatus(
+                    "Video error: " +
+                    error.message
+                );
+
+            }
+
+        };
+
+
+    /* --------------------------------------------------------
+       Make media buttons discoverable
+       -------------------------------------------------------- */
+
+    document.addEventListener(
+        "click",
+        function(event){
+
+            const button =
+                event.target.closest(
+                    "button"
+                );
+
+            if(!button)
+                return;
+
+            const text =
+                (
+                    button.textContent ||
+                    ""
+                ).toLowerCase();
+
+            if(
+                text.includes("generate image")
+                ||
+                text === "image"
+            ){
+
+                window.adaGenerateImage();
+
+            }
+
+            if(
+                text.includes("generate video")
+                ||
+                text === "video"
+            ){
+
+                window.adaGenerateVideo();
+
+            }
+
+        }
+    );
+
+
+    /* --------------------------------------------------------
+       Previous move + check styling
+       -------------------------------------------------------- */
+
+    const style =
+        document.createElement("style");
+
+    style.textContent = `
+
+        .ada-previous-move {
+            box-shadow:
+                inset 0 0 0 4px
+                rgba(255,215,80,.75) !important;
+        }
+
+        .ada-chess-check {
+            background:
+                rgba(220,40,40,.85) !important;
+
+            box-shadow:
+                inset 0 0 0 4px
+                rgba(255,80,80,.95),
+                0 0 18px
+                rgba(255,50,50,.75) !important;
+        }
+
+        #adaChessActionBar button {
+            border:1px solid
+                rgba(255,255,255,.12);
+
+            background:
+                rgba(255,255,255,.06);
+
+            color:inherit;
+
+            border-radius:8px;
+
+            padding:8px 13px;
+
+            cursor:pointer;
+        }
+
+        #adaChessActionBar button:hover {
+            background:
+                rgba(255,255,255,.12);
+        }
+
+    `;
+
+    document.head.appendChild(style);
+
+
+})();
+
+
+/* ADA FINAL CHESS CONTROLLER V2 */
+
+/* ADA FINAL CHESS CONTROLLER V2 */
+(function () {
+
+    "use strict";
+
+    window.adaChessLastMove = null;
+    window.adaChessCheckSquare = null;
+
+    const ADA_CHESS_FILES =
+        ["a","b","c","d","e","f","g","h"];
+
+    const ADA_CHESS_RANKS =
+        ["8","7","6","5","4","3","2","1"];
+
+    function adaChessGameId() {
+        return (
+            window.autonomousFinalChessId ||
+            window.chessGameId ||
+            ""
+        );
+    }
+
+    function adaChessColor() {
+        return (
+            window.autonomousFinalChessColor ||
+            window.chessColor ||
+            "white"
+        );
+    }
+
+    function adaChessDifficulty() {
+        return (
+            window.autonomousFinalChessDifficulty ||
+            window.chessDifficulty ||
+            "Medium"
+        );
+    }
+
+    function adaChessSetDifficulty(value) {
+
+        window.autonomousFinalChessDifficulty =
+            value;
+
+        window.chessDifficulty =
+            value;
+    }
+
+    function adaChessStatus(text) {
+
+        const el =
+            document.getElementById(
+                "chessStatus"
+            );
+
+        if (el) {
+            el.textContent = text;
+        }
+
+        if (typeof window.adaStatus === "function") {
+            try {
+                window.adaStatus(text);
+            } catch (_) {}
+        }
+    }
+
+    async function adaChessJSON(
+        url,
+        options
+    ) {
+
+        const response =
+            await fetch(url, {
+                headers: {
+                    "Content-Type":
+                        "application/json"
+                },
+                ...(options || {})
+            });
+
+        let data;
+
+        try {
+            data = await response.json();
+        } catch (_) {
+            throw new Error(
+                "Invalid server response."
+            );
+        }
+
+        if (!response.ok) {
+
+            throw new Error(
+                data.error ||
+                "Server request failed."
+            );
+        }
+
+        if (
+            data.ok === false &&
+            data.error
+        ) {
+            throw new Error(data.error);
+        }
+
+        return data;
+    }
+
+    function adaParseFen(fen) {
+
+        const board = [];
+
+        const rows =
+            fen.split(" ")[0]
+               .split("/");
+
+        for (
+            let rank = 0;
+            rank < 8;
+            rank++
+        ) {
+
+            const row = [];
+            const source = rows[rank];
+
+            for (
+                let i = 0;
+                i < source.length;
+                i++
+            ) {
+
+                const ch = source[i];
+
+                if (
+                    !isNaN(ch)
+                ) {
+
+                    const amount =
+                        Number(ch);
+
+                    for (
+                        let j = 0;
+                        j < amount;
+                        j++
+                    ) {
+                        row.push(null);
+                    }
+
+                } else {
+                    row.push(ch);
+                }
+            }
+
+            board.push(row);
+        }
+
+        return board;
+    }
+
+    function adaPiece(piece) {
+
+        const pieces = {
+            K: "♔",
+            Q: "♕",
+            R: "♖",
+            B: "♗",
+            N: "♘",
+            P: "♙",
+
+            k: "♚",
+            q: "♛",
+            r: "♜",
+            b: "♝",
+            n: "♞",
+            p: "♟"
+        };
+
+        return pieces[piece] || "";
+    }
+
+    function adaSquareName(
+        row,
+        col
+    ) {
+
+        return (
+            ADA_CHESS_FILES[col] +
+            ADA_CHESS_RANKS[row]
+        );
+    }
+
+    function adaChessBoardElement() {
+        return document.getElementById(
+            "chessBoard"
+        );
+    }
+
+    function adaRenderChess(
+        fen,
+        legalMoves
+    ) {
+
+        const boardElement =
+            adaChessBoardElement();
+
+        if (!boardElement)
+            return;
+
+        const board =
+            adaParseFen(fen);
+
+        boardElement.innerHTML = "";
+
+        const playerColor =
+            adaChessColor();
+
+        const flipped =
+            playerColor === "black";
+
+        for (
+            let visualRow = 0;
+            visualRow < 8;
+            visualRow++
+        ) {
+
+            for (
+                let visualCol = 0;
+                visualCol < 8;
+                visualCol++
+            ) {
+
+                const row =
+                    flipped
+                        ? 7 - visualRow
+                        : visualRow;
+
+                const col =
+                    flipped
+                        ? 7 - visualCol
+                        : visualCol;
+
+                const square =
+                    adaSquareName(
+                        row,
+                        col
+                    );
+
+                const cell =
+                    document.createElement(
+                        "div"
+                    );
+
+                cell.className =
+                    "ada-chess-cell";
+
+                cell.dataset.square =
+                    square;
+
+                if (
+                    (row + col) % 2 === 0
+                ) {
+                    cell.classList.add(
+                        "ada-chess-light"
+                    );
+                } else {
+                    cell.classList.add(
+                        "ada-chess-dark"
+                    );
+                }
+
+                // Previous move highlight.
+                if (
+                    window.adaChessLastMove &&
+                    (
+                        square ===
+                            window.adaChessLastMove.from ||
+                        square ===
+                            window.adaChessLastMove.to
+                    )
+                ) {
+
+                    cell.classList.add(
+                        "ada-previous-move"
+                    );
+                }
+
+                // Actual checked king square.
+                if (
+                    window.adaChessCheckSquare &&
+                    square ===
+                        window.adaChessCheckSquare
+                ) {
+
+                    cell.classList.add(
+                        "ada-chess-check"
+                    );
+                }
+
+                const piece =
+                    board[row][col];
+
+                if (piece) {
+
+                    const pieceEl =
+                        document.createElement(
+                            "span"
+                        );
+
+                    pieceEl.className =
+                        "ada-chess-piece";
+
+                    pieceEl.textContent =
+                        adaPiece(piece);
+
+                    cell.appendChild(
+                        pieceEl
+                    );
+                }
+
+                const legal =
+                    Array.isArray(legalMoves)
+                        ? legalMoves
+                        : [];
+
+                for (
+                    const move of legal
+                ) {
+
+                    if (
+                        move &&
+                        move.slice(2,4) ===
+                            square
+                    ) {
+
+                        cell.classList.add(
+                            "ada-legal-target"
+                        );
+
+                        break;
+                    }
+                }
+
+                cell.addEventListener(
+                    "click",
+                    function () {
+                        adaChessClick(
+                            square,
+                            fen,
+                            legalMoves
+                        );
+                    }
+                );
+
+                boardElement.appendChild(
+                    cell
+                );
+            }
+        }
+    }
+
+    let selectedSquare = null;
+
+    async function adaChessClick(
+        square,
+        fen,
+        legalMoves
+    ) {
+
+        if (!adaChessGameId())
+            return;
+
+        const board =
+            adaParseFen(fen);
+
+        const row =
+            ADA_CHESS_RANKS.indexOf(
+                square[1]
+            );
+
+        const col =
+            ADA_CHESS_FILES.indexOf(
+                square[0]
+            );
+
+        const piece =
+            board[row][col];
+
+        if (!selectedSquare) {
+
+            if (!piece) {
+                return;
+            }
+
+            const pieceIsWhite =
+                piece === piece.toUpperCase();
+
+            const playerIsWhite =
+                adaChessColor() === "white";
+
+            if (
+                pieceIsWhite !==
+                playerIsWhite
+            ) {
+                return;
+            }
+
+            selectedSquare =
+                square;
+
+            const cells =
+                document.querySelectorAll(
+                    ".ada-chess-cell"
+                );
+
+            cells.forEach(
+                function (cell) {
+
+                    if (
+                        cell.dataset.square ===
+                        square
+                    ) {
+                        cell.classList.add(
+                            "ada-chess-selected"
+                        );
+                    }
+                }
+            );
+
+            return;
+        }
+
+        const moveText =
+            selectedSquare + square;
+
+        const possible =
+            Array.isArray(legalMoves)
+                ? legalMoves
+                : [];
+
+        const matching =
+            possible.find(
+                function (move) {
+                    return move === moveText ||
+                           move.startsWith(
+                               moveText
+                           );
+                }
+            );
+
+        if (!matching) {
+
+            selectedSquare = null;
+
+            try {
+                await adaRefreshChess();
+            } catch (_) {}
+
+            return;
+        }
+
+        selectedSquare = null;
+
+        await adaMakeChessMove(
+            matching
+        );
+    }
+
+    async function adaMakeChessMove(
+        move
+    ) {
+
+        const oldFen =
+            window.autonomousFinalFen;
+
+        try {
+
+            const data =
+                await adaChessJSON(
+                    "/api/autonomous/chess/move",
+                    {
+                        method: "POST",
+                        body: JSON.stringify({
+                            game_id:
+                                adaChessGameId(),
+                            move: move
+                        })
+                    }
+                );
+
+            window.adaChessLastMove = {
+                from: move.slice(0,2),
+                to: move.slice(2,4)
+            };
+
+            if (
+                data.engine_move &&
+                data.engine_move.length >= 4
+            ) {
+
+                window.adaChessLastMove = {
+                    from:
+                        data.engine_move.slice(0,2),
+                    to:
+                        data.engine_move.slice(2,4)
+                };
+            }
+
+            window.autonomousFinalFen =
+                data.fen;
+
+            if (
+                data.game_over
+            ) {
+
+                window.adaChessCheckSquare =
+                    null;
+
+                adaRenderChess(
+                    data.fen,
+                    []
+                );
+
+                adaChessStatus(
+                    "Game over: " +
+                    (
+                        data.result ||
+                        "finished"
+                    )
+                );
+
+                return;
+            }
+
+            await adaRefreshChess();
+
+        } catch (error) {
+
+            window.autonomousFinalFen =
+                oldFen;
+
+            adaChessStatus(
+                "Move error: " +
+                error.message
+            );
+        }
+    }
+
+    async function adaRefreshChess() {
+
+        const gameId =
+            adaChessGameId();
+
+        if (!gameId)
+            return;
+
+        const state =
+            await adaChessJSON(
+                "/api/autonomous/chess/state?game_id=" +
+                encodeURIComponent(gameId)
+            );
+
+        window.autonomousFinalFen =
+            state.fen;
+
+        adaChessSetDifficulty(
+            state.difficulty ||
+            adaChessDifficulty()
+        );
+
+        window.adaChessCheckSquare =
+            state.check
+                ? state.check_square
+                : null;
+
+        adaRenderChess(
+            state.fen,
+            state.legal_moves || []
+        );
+
+        if (state.check) {
+
+            adaChessStatus(
+                "♔ CHECK — the king is under attack."
+            );
+
+        } else if (state.game_over) {
+
+            adaChessStatus(
+                "Game over: " +
+                (
+                    state.result ||
+                    "finished"
+                )
+            );
+        }
+    }
+
+    window.adaChessRestart =
+        async function () {
+
+            try {
+
+                const data =
+                    await adaChessJSON(
+                        "/api/autonomous/chess/restart",
+                        {
+                            method: "POST",
+                            body: JSON.stringify({
+                                color:
+                                    adaChessColor(),
+                                difficulty:
+                                    adaChessDifficulty()
+                            })
+                        }
+                    );
+
+                window.autonomousFinalChessId =
+                    data.game_id;
+
+                window.autonomousFinalFen =
+                    data.fen;
+
+                window.autonomousFinalChessColor =
+                    data.color;
+
+                adaChessSetDifficulty(
+                    data.difficulty
+                );
+
+                window.adaChessLastMove =
+                    null;
+
+                window.adaChessCheckSquare =
+                    null;
+
+                await adaRefreshChess();
+
+                adaChessStatus(
+                    "New chess game started."
+                );
+
+            } catch (error) {
+
+                adaChessStatus(
+                    "Restart error: " +
+                    error.message
+                );
+            }
+        };
+
+    window.adaChessDraw =
+        async function () {
+
+            try {
+
+                const data =
+                    await adaChessJSON(
+                        "/api/autonomous/chess/draw",
+                        {
+                            method: "POST",
+                            body: JSON.stringify({
+                                game_id:
+                                    adaChessGameId()
+                            })
+                        }
+                    );
+
+                window.adaChessCheckSquare =
+                    null;
+
+                adaRenderChess(
+                    data.fen,
+                    []
+                );
+
+                adaChessStatus(
+                    "Game drawn."
+                );
+
+            } catch (error) {
+
+                adaChessStatus(
+                    "Draw error: " +
+                    error.message
+                );
+            }
+        };
+
+    window.adaChessResign =
+        async function () {
+
+            try {
+
+                const data =
+                    await adaChessJSON(
+                        "/api/autonomous/chess/resign",
+                        {
+                            method: "POST",
+                            body: JSON.stringify({
+                                game_id:
+                                    adaChessGameId()
+                            })
+                        }
+                    );
+
+                window.adaChessCheckSquare =
+                    null;
+
+                adaRenderChess(
+                    data.fen,
+                    []
+                );
+
+                adaChessStatus(
+                    "You resigned. Result: " +
+                    data.result
+                );
+
+            } catch (error) {
+
+                adaChessStatus(
+                    "Resign error: " +
+                    error.message
+                );
+            }
+        };
+
+    window.adaChessChangeComputer =
+        async function () {
+
+            const levels = [
+                "Easy",
+                "Medium",
+                "Hard",
+                "Expert",
+                "Master"
+            ];
+
+            const current =
+                adaChessDifficulty();
+
+            const currentIndex =
+                levels.indexOf(current);
+
+            const next =
+                levels[
+                    (
+                        currentIndex < 0
+                            ? 0
+                            : currentIndex + 1
+                    ) % levels.length
+                ];
+
+            try {
+
+                const data =
+                    await adaChessJSON(
+                        "/api/autonomous/chess/settings",
+                        {
+                            method: "POST",
+                            body: JSON.stringify({
+                                game_id:
+                                    adaChessGameId(),
+                                difficulty:
+                                    next
+                            })
+                        }
+                    );
+
+                adaChessSetDifficulty(
+                    data.difficulty
+                );
+
+                await adaRefreshChess();
+
+                adaChessStatus(
+                    "Computer changed to " +
+                    data.difficulty +
+                    "."
+                );
+
+            } catch (error) {
+
+                adaChessStatus(
+                    "Computer settings error: " +
+                    error.message
+                );
+            }
+        };
+
+    /*
+     * Override the existing chess start function
+     * while preserving the existing modal/UI.
+     */
+    window.startChess =
+        async function () {
+
+            try {
+
+                const colorElement =
+                    document.getElementById(
+                        "chessColor"
+                    );
+
+                const difficultyElement =
+                    document.getElementById(
+                        "chessDifficulty"
+                    );
+
+                const color =
+                    colorElement
+                        ? colorElement.value
+                        : "white";
+
+                const difficulty =
+                    difficultyElement
+                        ? difficultyElement.value
+                        : "Medium";
+
+                const data =
+                    await adaChessJSON(
+                        "/api/autonomous/chess/start",
+                        {
+                            method: "POST",
+                            body: JSON.stringify({
+                                color: color,
+                                difficulty:
+                                    difficulty
+                            })
+                        }
+                    );
+
+                window.autonomousFinalChessId =
+                    data.game_id;
+
+                window.autonomousFinalFen =
+                    data.fen;
+
+                window.autonomousFinalChessColor =
+                    data.color;
+
+                adaChessSetDifficulty(
+                    data.difficulty
+                );
+
+                window.adaChessLastMove =
+                    null;
+
+                window.adaChessCheckSquare =
+                    null;
+
+                await adaRefreshChess();
+
+                const setup =
+                    document.getElementById(
+                        "chessSetup"
+                    );
+
+                const game =
+                    document.getElementById(
+                        "chessGame"
+                    );
+
+                if (setup)
+                    setup.style.display =
+                        "none";
+
+                if (game)
+                    game.style.display =
+                        "block";
+
+            } catch (error) {
+
+                adaChessStatus(
+                    "Chess start error: " +
+                    error.message
+                );
+            }
+        };
+
+    /*
+     * Keep chess refreshed when the modal becomes visible.
+     */
+    document.addEventListener(
+        "click",
+        function (event) {
+
+            const target =
+                event.target;
+
+            if (
+                target &&
+                (
+                    target.id ===
+                        "chessModal" ||
+                    target.closest &&
+                    target.closest(
+                        "#chessModal"
+                    )
+                )
+            ) {
+
+                setTimeout(
+                    function () {
+                        adaRefreshChess()
+                            .catch(
+                                function () {}
+                            );
+                    },
+                    150
+                );
+            }
+        }
+    );
+
+    /*
+     * Chess CSS.
+     */
+    const style =
+        document.createElement(
+            "style"
+        );
+
+    style.textContent = `
+        .ada-chess-cell {
+            position:relative;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            user-select:none;
+            cursor:pointer;
+            transition:
+                box-shadow .12s ease,
+                transform .12s ease;
+        }
+
+        .ada-chess-piece {
+            position:relative;
+            z-index:3;
+            font-size:clamp(
+                28px,
+                5vw,
+                56px
+            );
+            line-height:1;
+            pointer-events:none;
+        }
+
+        .ada-chess-selected {
+            box-shadow:
+                inset 0 0 0 4px
+                rgba(80,170,255,.95) !important;
+        }
+
+        .ada-legal-target::after {
+            content:"";
+            position:absolute;
+            width:22%;
+            height:22%;
+            border-radius:50%;
+            background:
+                rgba(80,180,100,.8);
+            z-index:2;
+            pointer-events:none;
+        }
+
+        .ada-previous-move {
+            box-shadow:
+                inset 0 0 0 4px
+                rgba(255,215,70,.95) !important;
+        }
+
+        .ada-chess-check {
+            background:
+                rgba(210,35,35,.88) !important;
+            box-shadow:
+                inset 0 0 0 4px
+                rgba(255,75,75,1),
+                0 0 20px
+                rgba(255,40,40,.9) !important;
+            animation:
+                adaCheckPulse .65s ease-in-out
+                infinite alternate;
+        }
+
+        @keyframes adaCheckPulse {
+            from {
+                filter:brightness(.9);
+            }
+            to {
+                filter:brightness(1.25);
+            }
+        }
+
+        #adaChessActionBar button {
+            border:1px solid
+                rgba(255,255,255,.14);
+            background:
+                rgba(255,255,255,.07);
+            color:inherit;
+            border-radius:9px;
+            padding:8px 13px;
+            cursor:pointer;
+            transition:
+                background .15s ease,
+                transform .1s ease;
+        }
+
+        #adaChessActionBar button:hover {
+            background:
+                rgba(255,255,255,.14);
+            transform:translateY(-1px);
+        }
+    `;
+
+    document.head.appendChild(style);
+
+    /*
+     * Image generation remains cloud Gemini-backed.
+     */
+    window.adaGenerateImage =
+        async function () {
+
+            const prompt =
+                window.prompt(
+                    "Describe the image to generate:"
+                );
+
+            if (
+                !prompt ||
+                !prompt.trim()
+            ) {
+                return;
+            }
+
+            try {
+
+                adaChessStatus(
+                    "Generating image with Gemini..."
+                );
+
+                const response =
+                    await fetch(
+                        "/api/autonomous/image",
+                        {
+                            method: "POST",
+                            headers: {
+                                "Content-Type":
+                                    "application/json"
+                            },
+                            body:
+                                JSON.stringify({
+                                    prompt:
+                                        prompt.trim()
+                                })
+                        }
+                    );
+
+                const data =
+                    await response.json();
+
+                if (
+                    !response.ok ||
+                    data.error
+                ) {
+                    throw new Error(
+                        data.error ||
+                        "Image generation failed."
+                    );
+                }
+
+                if (data.url) {
+
+                    window.open(
+                        data.url,
+                        "_blank"
+                    );
+
+                    adaChessStatus(
+                        "Gemini image generated."
+                    );
+
+                } else {
+
+                    adaChessStatus(
+                        "Gemini finished, but returned no image URL."
+                    );
+                }
+
+            } catch (error) {
+
+                adaChessStatus(
+                    "Image error: " +
+                    error.message
+                );
+            }
+        };
+
+    /*
+     * Video generation through Gemini cloud API.
+     * The completed video is downloaded by the backend
+     * into /static/generated.
+     */
+    window.adaGenerateVideo =
+        async function () {
+
+            const prompt =
+                window.prompt(
+                    "Describe the video to generate:"
+                );
+
+            if (
+                !prompt ||
+                !prompt.trim()
+            ) {
+                return;
+            }
+
+            try {
+
+                adaChessStatus(
+                    "Sending video request to Gemini..."
+                );
+
+                const response =
+                    await fetch(
+                        "/api/autonomous/video",
+                        {
+                            method: "POST",
+                            headers: {
+                                "Content-Type":
+                                    "application/json"
+                            },
+                            body:
+                                JSON.stringify({
+                                    prompt:
+                                        prompt.trim()
+                                })
+                        }
+                    );
+
+                const data =
+                    await response.json();
+
+                if (
+                    !response.ok ||
+                    data.error
+                ) {
+                    throw new Error(
+                        data.error ||
+                        "Video request failed."
+                    );
+                }
+
+                const operationId =
+                    data.operation_id ||
+                    data.name ||
+                    data.id;
+
+                if (!operationId) {
+                    throw new Error(
+                        "Gemini returned no operation ID."
+                    );
+                }
+
+                let finished = false;
+
+                for (
+                    let i = 0;
+                    i < 120;
+                    i++
+                ) {
+
+                    await new Promise(
+                        function(resolve) {
+                            setTimeout(
+                                resolve,
+                                5000
+                            );
+                        }
+                    );
+
+                    const statusResponse =
+                        await fetch(
+                            "/api/autonomous/video/local-status/" +
+                            encodeURIComponent(
+                                operationId
+                            )
+                        );
+
+                    const status =
+                        await statusResponse.json();
+
+                    if (
+                        status.status ===
+                        "completed"
+                    ) {
+
+                        finished = true;
+
+                        if (status.url) {
+
+                            const videoWindow =
+                                window.open(
+                                    "",
+                                    "_blank"
+                                );
+
+                            if (videoWindow) {
+
+                                videoWindow.document.write(
+                                    "<!doctype html>" +
+                                    "<html><head>" +
+                                    "<title>ADA Gemini Video</title>" +
+                                    "</head><body " +
+                                    "style='margin:0;" +
+                                    "background:#111;" +
+                                    "display:flex;" +
+                                    "align-items:center;" +
+                                    "justify-content:center;'>" +
+                                    "<video controls autoplay " +
+                                    "style='max-width:96vw;" +
+                                    "max-height:96vh;'>" +
+                                    "<source src='" +
+                                    status.url +
+                                    "' type='video/mp4'>" +
+                                    "</video>" +
+                                    "</body></html>"
+                                );
+
+                                videoWindow.document.close();
+
+                            } else {
+
+                                window.location.href =
+                                    status.url;
+                            }
+
+                            adaChessStatus(
+                                "Gemini video generated successfully."
+                            );
+                        }
+
+                        break;
+                    }
+
+                    if (
+                        status.status ===
+                        "error"
+                    ) {
+
+                        throw new Error(
+                            status.error ||
+                            "Gemini video generation failed."
+                        );
+                    }
+
+                    adaChessStatus(
+                        "Generating video with Gemini... " +
+                        Math.round(
+                            ((i + 1) / 120) * 100
+                        ) +
+                        "%"
+                    );
+                }
+
+                if (!finished) {
+
+                    adaChessStatus(
+                        "Gemini video is still processing. You can keep using ADA."
+                    );
+                }
+
+            } catch (error) {
+
+                adaChessStatus(
+                    "Video error: " +
+                    error.message
+                );
+            }
+        };
+
+})();
+
+
+/* ============================================================
+   ADA CLEAN MEDIA DISABLE
+   Image/video generation intentionally disabled for now.
+   ============================================================ */
+(function () {
+    "use strict";
+
+    function removeMediaButtons() {
+        const selectors = [
+            'button[onclick*="autonomousFinalImage"]',
+            'button[onclick*="autonomousFinalVideo"]',
+            'button[onclick*="adaGenerateImage"]',
+            'button[onclick*="adaGenerateVideo"]'
+        ];
+
+        selectors.forEach(function (selector) {
+            document.querySelectorAll(selector).forEach(function (node) {
+                node.remove();
+            });
+        });
+
+        document.querySelectorAll(
+            "#autonomousFinalFeatureBar, .autonomous-final-feature-bar"
+        ).forEach(function (bar) {
+            const text = (bar.textContent || "").toLowerCase();
+
+            if (
+                text.includes("image") ||
+                text.includes("video") ||
+                text.includes("🎨") ||
+                text.includes("🎬")
+            ) {
+                bar.remove();
+            }
+        });
+    }
+
+    window.adaGenerateImage = function () {
+        return Promise.reject(
+            new Error("Image generation is temporarily disabled.")
+        );
+    };
+
+    window.adaGenerateVideo = function () {
+        return Promise.reject(
+            new Error("Video generation is temporarily disabled.")
+        );
+    };
+
+    window.autonomousFinalImage = function () {
+        alert("Image generation is temporarily disabled for this version.");
+    };
+
+    window.autonomousFinalVideo = function () {
+        alert("Video generation is temporarily disabled for this version.");
+    };
+
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", removeMediaButtons);
+    } else {
+        removeMediaButtons();
+    }
+
+    window.addEventListener("load", removeMediaButtons);
+
+    const observer = new MutationObserver(function () {
+        removeMediaButtons();
+    });
+
+    observer.observe(document.documentElement, {
+        childList: true,
+        subtree: true
+    });
+})();
+
+
+/* ADA_CLEAN_CHESS_START */
+(function () {
+    "use strict";
+
+    const START_FEN =
+        "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR";
+
+    const PIECES = {
+        "K": "♔",
+        "Q": "♕",
+        "R": "♖",
+        "B": "♗",
+        "N": "♘",
+        "P": "♙",
+        "k": "♚",
+        "q": "♛",
+        "r": "♜",
+        "b": "♝",
+        "n": "♞",
+        "p": "♟"
+    };
+
+    let cleanGameId = null;
+    let cleanColor = "white";
+    let cleanFen = START_FEN;
+    let cleanSelected = null;
+    let cleanLegal = [];
+
+    function el(id) {
+        return document.getElementById(id);
+    }
+
+    function parseFen(fen) {
+        const board = [];
+        const rows = String(fen || START_FEN).split("/").slice(0, 8);
+
+        for (const row of rows) {
+            const out = [];
+
+            for (const ch of row) {
+                if (/[1-8]/.test(ch)) {
+                    for (let i = 0; i < Number(ch); i++) {
+                        out.push("");
+                    }
+                } else {
+                    out.push(ch);
+                }
+            }
+
+            while (out.length < 8) {
+                out.push("");
+            }
+
+            board.push(out.slice(0, 8));
+        }
+
+        while (board.length < 8) {
+            board.push(["","","","","","","",""]);
+        }
+
+        return board;
+    }
+
+    function squareName(row, col) {
+        return String.fromCharCode(97 + col) + String(8 - row);
+    }
+
+    function showGame() {
+        const setup = el("chessSetup");
+        const game = el("chessGame");
+
+        if (setup) {
+            setup.classList.add("hidden");
+            setup.style.display = "none";
+        }
+
+        if (game) {
+            game.classList.remove("hidden");
+            game.style.display = "block";
+            game.style.visibility = "visible";
+            game.style.opacity = "1";
+        }
+    }
+
+    function showStatus(text) {
+        const status = el("chessStatus");
+        if (status) {
+            status.textContent = text;
+        }
+    }
+
+    function drawBoard() {
+        const target = el("chessBoard");
+        if (!target) {
+            return;
+        }
+
+        target.innerHTML = "";
+        target.style.display = "grid";
+        target.style.gridTemplateColumns = "repeat(8, minmax(0, 1fr))";
+        target.style.gridTemplateRows = "repeat(8, minmax(0, 1fr))";
+        target.style.width = "min(640px, 82vw)";
+        target.style.height = "min(640px, 82vw)";
+        target.style.minWidth = "320px";
+        target.style.minHeight = "320px";
+        target.style.margin = "20px auto";
+        target.style.visibility = "visible";
+        target.style.opacity = "1";
+
+        const board = parseFen(cleanFen);
+        const reverse = cleanColor === "black";
+
+        for (let vr = 0; vr < 8; vr++) {
+            for (let vc = 0; vc < 8; vc++) {
+
+                const r = reverse ? 7 - vr : vr;
+                const c = reverse ? 7 - vc : vc;
+
+                const square = document.createElement("button");
+
+                square.type = "button";
+                square.className =
+                    "chess-square " +
+                    (((vr + vc) % 2 === 0)
+                        ? "chess-light"
+                        : "chess-dark");
+
+                square.dataset.square = squareName(r, c);
+
+                if (
+                    cleanSelected &&
+                    cleanSelected.r === r &&
+                    cleanSelected.c === c
+                ) {
+                    square.classList.add("chess-selected");
+                }
+
+                if (
+                    cleanLegal.includes(
+                        squareName(r, c)
+                    )
+                ) {
+                    square.classList.add("chess-legal");
+                }
+
+                const piece = board[r][c];
+
+                if (piece) {
+                    square.textContent =
+                        PIECES[piece] || piece;
+                }
+
+                square.addEventListener(
+                    "click",
+                    function () {
+                        clickSquare(r, c, board);
+                    }
+                );
+
+                target.appendChild(square);
+            }
+        }
+    }
+
+    async function getLegal(square) {
+        if (!cleanGameId) {
+            return [];
+        }
+
+        try {
+            const response = await fetch(
+                "/api/autonomous/chess/legal-moves?game_id=" +
+                encodeURIComponent(cleanGameId) +
+                "&square=" +
+                encodeURIComponent(square),
+                {
+                    credentials: "same-origin"
+                }
+            );
+
+            if (!response.ok) {
+                return [];
+            }
+
+            const data = await response.json();
+
+            return Array.isArray(data.legal_moves)
+                ? data.legal_moves
+                : [];
+
+        } catch (_) {
+            return [];
+        }
+    }
+
+    async function clickSquare(r, c, board) {
+
+        const square = squareName(r, c);
+
+        if (!cleanSelected) {
+
+            const piece = board[r][c];
+
+            if (!piece) {
+                return;
+            }
+
+            const isWhite =
+                piece === piece.toUpperCase();
+
+            if (
+                cleanColor === "white" &&
+                !isWhite
+            ) {
+                return;
+            }
+
+            if (
+                cleanColor === "black" &&
+                isWhite
+            ) {
+                return;
+            }
+
+            cleanSelected = {
+                r: r,
+                c: c
+            };
+
+            cleanLegal =
+                await getLegal(square);
+
+            drawBoard();
+            return;
+        }
+
+        const from =
+            squareName(
+                cleanSelected.r,
+                cleanSelected.c
+            );
+
+        const to = square;
+
+        if (!cleanLegal.includes(to)) {
+            cleanSelected = null;
+            cleanLegal = [];
+            drawBoard();
+            return;
+        }
+
+        showStatus("Computer is thinking...");
+
+        try {
+
+            const response = await fetch(
+                "/api/autonomous/chess/move",
+                {
+                    method: "POST",
+                    credentials: "same-origin",
+                    headers: {
+                        "Content-Type":
+                            "application/json"
+                    },
+                    body: JSON.stringify({
+                        game_id: cleanGameId,
+                        move: from + to
+                    })
+                }
+            );
+
+            const data =
+                await response.json();
+
+            if (!response.ok) {
+                throw new Error(
+                    data.detail ||
+                    "Chess move failed."
+                );
+            }
+
+            if (data.fen) {
+                cleanFen = data.fen;
+            }
+
+            cleanSelected = null;
+            cleanLegal = [];
+
+            drawBoard();
+
+            if (data.game_over) {
+                showStatus(
+                    data.result ||
+                    "Game over"
+                );
+            } else {
+                showStatus(
+                    data.engine_move
+                        ? "Computer played " +
+                          data.engine_move +
+                          " — your move"
+                        : "Your move"
+                );
+            }
+
+        } catch (error) {
+
+            cleanSelected = null;
+            cleanLegal = [];
+
+            drawBoard();
+
+            showStatus(
+                error.message ||
+                "Chess move failed."
+            );
+        }
+    }
+
+    /*
+     * This deliberately renders the board BEFORE the API request.
+     * Therefore a backend/API problem can no longer make the chess
+     * board itself disappear.
+     */
+    window.startChess = async function () {
+
+        const colorNode = el("chessColor");
+        const difficultyNode = el("chessDifficulty");
+
+        cleanColor =
+            colorNode
+                ? colorNode.value
+                : "white";
+
+        const difficulty =
+            difficultyNode
+                ? difficultyNode.value
+                : "Medium";
+
+        cleanFen = START_FEN;
+        cleanSelected = null;
+        cleanLegal = [];
+
+        showGame();
+        drawBoard();
+        showStatus("Starting chess...");
+
+        try {
+
+            const response = await fetch(
+                "/api/autonomous/chess/start",
+                {
+                    method: "POST",
+                    credentials: "same-origin",
+                    headers: {
+                        "Content-Type":
+                            "application/json"
+                    },
+                    body: JSON.stringify({
+                        color: cleanColor,
+                        difficulty: difficulty
+                    })
+                }
+            );
+
+            const data =
+                await response.json();
+
+            if (!response.ok) {
+                throw new Error(
+                    data.detail ||
+                    "Chess server failed to start."
+                );
+            }
+
+            cleanGameId =
+                data.game_id || null;
+
+            if (data.fen) {
+                cleanFen = data.fen;
+            }
+
+            /*
+             * If playing black, the backend normally makes
+             * the first computer move.
+             */
+            drawBoard();
+
+            if (data.game_over) {
+                showStatus(
+                    data.result ||
+                    "Game over"
+                );
+            } else if (cleanColor === "black") {
+                showStatus(
+                    "Computer has started — your move"
+                );
+            } else {
+                showStatus("Your move");
+            }
+
+        } catch (error) {
+
+            /*
+             * Board remains visible even when the server fails.
+             * This makes the failure obvious instead of producing
+             * an empty chess modal.
+             */
+            cleanGameId = null;
+            cleanFen = START_FEN;
+
+            drawBoard();
+
+            showStatus(
+                "Chess server error: " +
+                (error.message ||
+                 "unknown error")
+            );
+        }
+    };
+
+    window.openChess = function () {
+
+        const modal = el("chessModal");
+
+        if (modal) {
+            modal.classList.remove("hidden");
+            modal.style.display = "flex";
+            modal.style.visibility = "visible";
+            modal.style.opacity = "1";
+        }
+
+        const setup = el("chessSetup");
+        const game = el("chessGame");
+
+        if (setup) {
+            setup.classList.remove("hidden");
+            setup.style.display = "";
+        }
+
+        if (game) {
+            game.classList.add("hidden");
+            game.style.display = "none";
+        }
+    };
+
+    window.closeChess = function () {
+        const modal = el("chessModal");
+
+        if (modal) {
+            modal.classList.add("hidden");
+        }
+    };
+
+    window.addEventListener("load", function () {
+
+        const board = el("chessBoard");
+
+        if (board) {
+            board.style.boxSizing = "border-box";
+        }
+
+    });
+
+})();
+ /* ADA_CLEAN_CHESS_END */
+
+
+/* ADA_CHESS_VISUAL_UPGRADE_START */
+(function () {
+    "use strict";
+
+    /*
+     * =========================================================
+     * ADA CHESS VISUAL UPGRADE
+     *
+     * Yellow:
+     *   ONLY the previous move's FROM + TO squares.
+     *
+     * Legal moves:
+     *   Keep the separate legal-move indicator.
+     *
+     * Animation:
+     *   The moved piece smoothly animates from its old square
+     *   to its new square.
+     * =========================================================
+     */
+
+    let adaPreviousMove = null;
+    let adaAnimationLock = false;
+
+    function adaChessBoard() {
+        return document.getElementById("chessBoard");
+    }
+
+    function adaSquareName(row, col) {
+        return String.fromCharCode(97 + col) +
+               String(8 - row);
+    }
+
+    function adaFindSquare(name) {
+        const board = adaChessBoard();
+
+        if (!board) return null;
+
+        return board.querySelector(
+            '[data-square="' + name + '"]'
+        );
+    }
+
+    function adaClearPreviousMove() {
+        const board = adaChessBoard();
+
+        if (!board) return;
+
+        board.querySelectorAll(
+            ".ada-previous-move"
+        ).forEach(function (node) {
+            node.classList.remove(
+                "ada-previous-move"
+            );
+        });
+    }
+
+    function adaShowPreviousMove(from, to) {
+
+        adaClearPreviousMove();
+
+        if (!from || !to) {
+            return;
+        }
+
+        adaPreviousMove = {
+            from: from,
+            to: to
+        };
+
+        const fromSquare =
+            adaFindSquare(from);
+
+        const toSquare =
+            adaFindSquare(to);
+
+        if (fromSquare) {
+            fromSquare.classList.add(
+                "ada-previous-move"
+            );
+        }
+
+        if (toSquare) {
+            toSquare.classList.add(
+                "ada-previous-move"
+            );
+        }
+    }
+
+    /*
+     * Try to obtain the last move from the server response.
+     * Supports several formats so the visual layer doesn't
+     * depend on one exact backend response shape.
+     */
+    function adaExtractMove(data) {
+
+        if (!data) return null;
+
+        let move =
+            data.last_move ||
+            data.player_move ||
+            data.move ||
+            null;
+
+        if (
+            move &&
+            typeof move === "object"
+        ) {
+            move =
+                move.uci ||
+                move.move ||
+                move.san ||
+                null;
+        }
+
+        if (
+            typeof move !== "string"
+        ) {
+            return null;
+        }
+
+        /*
+         * UCI:
+         * e2e4
+         * g1f3
+         * etc.
+         */
+        if (
+            /^[a-h][1-8][a-h][1-8]$/i.test(move)
+        ) {
+            return {
+                from: move.slice(0, 2),
+                to: move.slice(2, 4)
+            };
+        }
+
+        return null;
+    }
+
+    /*
+     * Capture the current board piece positions before
+     * replacing the board.
+     */
+    function adaCapturePieces() {
+
+        const board = adaChessBoard();
+
+        if (!board) return {};
+
+        const result = {};
+
+        board.querySelectorAll(
+            "[data-square]"
+        ).forEach(function (square) {
+
+            const piece =
+                square.textContent.trim();
+
+            if (piece) {
+                result[
+                    square.dataset.square
+                ] = piece;
+            }
+        });
+
+        return result;
+    }
+
+    /*
+     * Animate the visual piece.
+     *
+     * We don't modify the actual chess state.
+     * This is purely visual.
+     */
+    function adaAnimateMove(from, to, callback) {
+
+        const board = adaChessBoard();
+
+        if (!board || !from || !to) {
+            if (callback) callback();
+            return;
+        }
+
+        const fromSquare =
+            adaFindSquare(from);
+
+        const toSquare =
+            adaFindSquare(to);
+
+        if (!fromSquare || !toSquare) {
+            if (callback) callback();
+            return;
+        }
+
+        const piece =
+            fromSquare.textContent.trim();
+
+        if (!piece) {
+            if (callback) callback();
+            return;
+        }
+
+        const fromRect =
+            fromSquare.getBoundingClientRect();
+
+        const toRect =
+            toSquare.getBoundingClientRect();
+
+        const boardRect =
+            board.getBoundingClientRect();
+
+        const animated =
+            document.createElement("div");
+
+        animated.className =
+            "ada-chess-animated-piece";
+
+        animated.textContent = piece;
+
+        animated.style.left =
+            (fromRect.left - boardRect.left) +
+            "px";
+
+        animated.style.top =
+            (fromRect.top - boardRect.top) +
+            "px";
+
+        animated.style.width =
+            fromRect.width + "px";
+
+        animated.style.height =
+            fromRect.height + "px";
+
+        animated.style.fontSize =
+            getComputedStyle(fromSquare)
+                .fontSize;
+
+        board.appendChild(animated);
+
+        fromSquare.classList.add(
+            "ada-piece-hidden"
+        );
+
+        toSquare.classList.add(
+            "ada-piece-hidden"
+        );
+
+        requestAnimationFrame(function () {
+
+            animated.classList.add(
+                "ada-piece-moving"
+            );
+
+            animated.style.transform =
+                "translate(" +
+                (toRect.left - fromRect.left) +
+                "px, " +
+                (toRect.top - fromRect.top) +
+                "px)";
+
+        });
+
+        window.setTimeout(function () {
+
+            animated.remove();
+
+            fromSquare.classList.remove(
+                "ada-piece-hidden"
+            );
+
+            toSquare.classList.remove(
+                "ada-piece-hidden"
+            );
+
+            if (callback) callback();
+
+        }, 280);
+    }
+
+    /*
+     * Patch board rendering without destroying the existing
+     * ADA chess functionality.
+     */
+    function adaEnhanceBoard() {
+
+        const board = adaChessBoard();
+
+        if (!board) return;
+
+        /*
+         * Existing legal indicators stay untouched.
+         *
+         * We only add our previous-move class.
+         */
+        adaClearPreviousMove();
+
+        if (adaPreviousMove) {
+
+            const from =
+                adaFindSquare(
+                    adaPreviousMove.from
+                );
+
+            const to =
+                adaFindSquare(
+                    adaPreviousMove.to
+                );
+
+            if (from) {
+                from.classList.add(
+                    "ada-previous-move"
+                );
+            }
+
+            if (to) {
+                to.classList.add(
+                    "ada-previous-move"
+                );
+            }
+        }
+    }
+
+    /*
+     * Watch the existing chess board.
+     * This lets the upgrade work with the existing ADA
+     * renderer instead of replacing the whole chess system.
+     */
+    function adaInstallChessObserver() {
+
+        const board = adaChessBoard();
+
+        if (!board || board.dataset.adaVisualObserver) {
+            return;
+        }
+
+        board.dataset.adaVisualObserver = "1";
+
+        const observer =
+            new MutationObserver(function () {
+
+                window.requestAnimationFrame(
+                    adaEnhanceBoard
+                );
+
+            });
+
+        observer.observe(board, {
+            childList: true,
+            subtree: true
+        });
+    }
+
+    /*
+     * Observe the page because the chess modal can be created
+     * dynamically.
+     */
+    const pageObserver =
+        new MutationObserver(function () {
+
+            adaInstallChessObserver();
+
+        });
+
+    function boot() {
+
+        adaInstallChessObserver();
+
+        pageObserver.observe(
+            document.body,
+            {
+                childList: true,
+                subtree: true
+            }
+        );
+    }
+
+    /*
+     * Expose helpers so the existing chess controller can
+     * report the move after a successful server response.
+     */
+    window.adaChessPreviousMove =
+        function (from, to) {
+
+            adaShowPreviousMove(
+                from,
+                to
+            );
+
+            adaEnhanceBoard();
+        };
+
+    window.adaChessAnimateMove =
+        function (from, to, callback) {
+
+            adaAnimateMove(
+                from,
+                to,
+                callback
+            );
+        };
+
+    window.adaChessEnhanceBoard =
+        function () {
+
+            adaEnhanceBoard();
+
+        };
+
+    /*
+     * If the existing controller reports an entire UCI move:
+     */
+    window.adaChessReportMove =
+        function (uciMove) {
+
+            if (
+                typeof uciMove !== "string" ||
+                !/^[a-h][1-8][a-h][1-8]$/i.test(
+                    uciMove
+                )
+            ) {
+                return;
+            }
+
+            const from =
+                uciMove.slice(0, 2);
+
+            const to =
+                uciMove.slice(2, 4);
+
+            adaShowPreviousMove(
+                from,
+                to
+            );
+
+            adaEnhanceBoard();
+        };
+
+    if (
+        document.readyState ===
+        "loading"
+    ) {
+        document.addEventListener(
+            "DOMContentLoaded",
+            boot
+        );
+    } else {
+        boot();
+    }
+
+})();
+ /* ADA_CHESS_VISUAL_UPGRADE_END */
+
+
+
+// ===== ADA ACTION PASSWORD UI V1 =====
+
+(() => {
+
+    const originalFetch =
+        window.fetch.bind(window);
+
+    let setupInProgress = false;
+
+
+    async function securityStatus() {
+
+        try {
+
+            const response = await originalFetch(
+                "/api/security/password/status",
+                {
+                    credentials: "include"
+                }
+            );
+
+            if (!response.ok) {
+                return null;
+            }
+
+            return await response.json();
+
+        } catch (_) {
+
+            return null;
+        }
+    }
+
+
+    async function setupPassword(force = false) {
+
+        if (setupInProgress) {
+            return false;
+        }
+
+        setupInProgress = true;
+
+        try {
+
+            const status =
+                await securityStatus();
+
+            if (
+                !force &&
+                (
+                    !status ||
+                    status.configured
+                )
+            ) {
+                return true;
+            }
+
+            const first = window.prompt(
+                "Create your Autonomous AI action password.\n\n" +
+                "This password will be required before AI can make " +
+                "changes to your computer.\n\n" +
+                "Minimum 6 characters:"
+            );
+
+            if (first === null) {
+                return false;
+            }
+
+            if (first.length < 6) {
+
+                alert(
+                    "Password must be at least 6 characters."
+                );
+
+                return false;
+            }
+
+            const second = window.prompt(
+                "Confirm your new action password:"
+            );
+
+            if (second !== first) {
+
+                alert(
+                    "Passwords do not match."
+                );
+
+                return false;
+            }
+
+            const response = await originalFetch(
+                "/api/security/password/setup",
+                {
+                    method: "POST",
+                    credentials: "include",
+                    headers: {
+                        "Content-Type":
+                            "application/json"
+                    },
+                    body: JSON.stringify({
+                        password: first
+                    })
+                }
+            );
+
+            if (!response.ok) {
+
+                const data =
+                    await response.json().catch(
+                        () => ({})
+                    );
+
+                if (response.status === 409) {
+                    return true;
+                }
+
+                alert(
+                    data.detail ||
+                    "Could not create password."
+                );
+
+                return false;
+            }
+
+            alert(
+                "Action password created successfully."
+            );
+
+            return true;
+
+        } finally {
+
+            setupInProgress = false;
+        }
+    }
+
+
+    async function changeActionPassword() {
+
+        const oldPassword = window.prompt(
+            "Enter your current action password:"
+        );
+
+        if (oldPassword === null) {
+            return;
+        }
+
+        const newPassword = window.prompt(
+            "Enter your new action password " +
+            "(minimum 6 characters):"
+        );
+
+        if (newPassword === null) {
+            return;
+        }
+
+        if (newPassword.length < 6) {
+
+            alert(
+                "Password must be at least 6 characters."
+            );
+
+            return;
+        }
+
+        const confirmPassword = window.prompt(
+            "Confirm your new password:"
+        );
+
+        if (newPassword !== confirmPassword) {
+
+            alert(
+                "Passwords do not match."
+            );
+
+            return;
+        }
+
+        const response = await originalFetch(
+            "/api/security/password/change",
+            {
+                method: "POST",
+                credentials: "include",
+                headers: {
+                    "Content-Type":
+                        "application/json"
+                },
+                body: JSON.stringify({
+                    old_password:
+                        oldPassword,
+                    new_password:
+                        newPassword
+                })
+            }
+        );
+
+        const data =
+            await response.json().catch(
+                () => ({})
+            );
+
+        if (!response.ok) {
+
+            alert(
+                data.detail ||
+                "Password could not be changed."
+            );
+
+            return;
+        }
+
+        alert(
+            "Action password changed successfully."
+        );
+    }
+
+
+    function addSecuritySetting() {
+
+        const list =
+            document.querySelector(
+                "#settingsModal .settings-list"
+            );
+
+        if (
+            !list ||
+            document.getElementById(
+                "adaSecuritySetting"
+            )
+        ) {
+            return;
+        }
+
+        const row =
+            document.createElement("div");
+
+        row.id =
+            "adaSecuritySetting";
+
+        row.className =
+            "setting-row";
+
+        row.innerHTML = `
+            <div>
+                <strong>
+                    Computer action password
+                </strong>
+
+                <span>
+                    Required before Autonomous AI
+                    changes or controls this computer
+                </span>
+            </div>
+
+            <button
+                class="setting-action"
+                id="adaChangePasswordButton"
+                type="button"
+            >
+                Change password
+            </button>
+        `;
+
+        list.appendChild(row);
+
+        document
+            .getElementById(
+                "adaChangePasswordButton"
+            )
+            .addEventListener(
+                "click",
+                changeActionPassword
+            );
+    }
+
+
+    const originalOpenSettings =
+        window.openSettings;
+
+    if (
+        typeof originalOpenSettings ===
+        "function"
+    ) {
+
+        window.openSettings =
+            function (...args) {
+
+                addSecuritySetting();
+
+                return originalOpenSettings.apply(
+                    this,
+                    args
+                );
+            };
+    }
+
+
+    window.fetch =
+        async function (
+            input,
+            init = {}
+        ) {
+
+            let response =
+                await originalFetch(
+                    input,
+                    init
+                );
+
+            const url =
+                typeof input === "string"
+                    ? input
+                    : (
+                        input &&
+                        input.url
+                    ) || "";
+
+            if (
+                !url.includes(
+                    "/api/chat"
+                )
+            ) {
+                return response;
+            }
+
+            if (
+                response.status !== 403 &&
+                response.status !== 428
+            ) {
+                return response;
+            }
+
+            let data = {};
+
+            try {
+
+                data =
+                    await response
+                        .clone()
+                        .json();
+
+            } catch (_) {}
+
+            if (
+                data.detail ===
+                "PASSWORD_SETUP_REQUIRED"
+            ) {
+
+                const created =
+                    await setupPassword(true);
+
+                if (!created) {
+                    return response;
+                }
+            }
+
+            else if (
+                data.detail !==
+                "ACTION_PASSWORD_REQUIRED"
+            ) {
+
+                return response;
+            }
+
+
+            const password =
+                window.prompt(
+                    "Autonomous AI wants to perform " +
+                    "a computer action.\n\n" +
+                    "Enter your action password to allow it:"
+                );
+
+            if (password === null) {
+
+                return response;
+            }
+
+
+            const headers =
+                new Headers(
+                    init.headers || {}
+                );
+
+            headers.set(
+                "X-ADA-Action-Password",
+                password
+            );
+
+
+            response =
+                await originalFetch(
+                    input,
+                    {
+                        ...init,
+                        headers
+                    }
+                );
+
+            return response;
+        };
+
+
+    async function startupSecurityCheck() {
+
+        addSecuritySetting();
+
+        const status =
+            await securityStatus();
+
+        if (
+            status &&
+            !status.configured
+        ) {
+
+            setTimeout(
+                () => setupPassword(false),
+                500
+            );
+        }
+    }
+
+
+    if (
+        document.readyState ===
+        "loading"
+    ) {
+
+        document.addEventListener(
+            "DOMContentLoaded",
+            startupSecurityCheck
+        );
+
+    } else {
+
+        startupSecurityCheck();
+    }
+
+
+    window.adaChangeActionPassword =
+        changeActionPassword;
+
+})();
+
+// ===== END ADA ACTION PASSWORD UI V1 =====

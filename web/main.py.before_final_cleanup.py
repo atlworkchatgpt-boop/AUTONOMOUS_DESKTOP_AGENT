@@ -1,4 +1,4 @@
-import chess
+﻿import chess
 from web.guest import router as guest_router
 from web.chess_service import (
     start_game as chess_start_game,
@@ -1170,333 +1170,6 @@ async def answer_groq(
     return answer
 
 
-
-# ===== ADA ACTION PASSWORD SECURITY V1 =====
-
-def _ada_security_table():
-    conn = db()
-    conn.execute(
-        """
-        CREATE TABLE IF NOT EXISTS action_passwords
-        (
-            user_id INTEGER PRIMARY KEY,
-            salt TEXT NOT NULL,
-            password_hash TEXT NOT NULL,
-            updated_at TEXT NOT NULL
-        )
-        """
-    )
-    conn.commit()
-    conn.close()
-
-
-def _ada_password_hash(password, salt=None):
-    if salt is None:
-        salt_bytes = secrets.token_bytes(16)
-    elif isinstance(salt, str):
-        salt_bytes = base64.b64decode(salt)
-    else:
-        salt_bytes = salt
-
-    digest = hashlib.pbkdf2_hmac(
-        "sha256",
-        password.encode("utf-8"),
-        salt_bytes,
-        250000
-    )
-
-    return (
-        base64.b64encode(salt_bytes).decode("ascii"),
-        base64.b64encode(digest).decode("ascii")
-    )
-
-
-def _ada_password_row(user_id):
-    _ada_security_table()
-
-    conn = db()
-
-    row = conn.execute(
-        """
-        SELECT user_id, salt, password_hash
-        FROM action_passwords
-        WHERE user_id = ?
-        LIMIT 1
-        """,
-        (user_id,)
-    ).fetchone()
-
-    conn.close()
-    return row
-
-
-def _ada_password_exists(user_id):
-    return _ada_password_row(user_id) is not None
-
-
-def _ada_verify_password(user_id, password):
-    if not password:
-        return False
-
-    row = _ada_password_row(user_id)
-
-    if row is None:
-        return False
-
-    _, candidate = _ada_password_hash(
-        password,
-        row["salt"]
-    )
-
-    return hmac.compare_digest(
-        candidate,
-        row["password_hash"]
-    )
-
-
-def _ada_set_password(user_id, password):
-    if len(password) < 6:
-        raise HTTPException(
-            status_code=400,
-            detail="Password must be at least 6 characters."
-        )
-
-    salt, password_hash = _ada_password_hash(password)
-
-    conn = db()
-
-    conn.execute(
-        """
-        INSERT INTO action_passwords
-        (
-            user_id,
-            salt,
-            password_hash,
-            updated_at
-        )
-        VALUES (?, ?, ?, ?)
-        ON CONFLICT(user_id)
-        DO UPDATE SET
-            salt = excluded.salt,
-            password_hash = excluded.password_hash,
-            updated_at = excluded.updated_at
-        """,
-        (
-            user_id,
-            salt,
-            password_hash,
-            now()
-        )
-    )
-
-    conn.commit()
-    conn.close()
-
-
-@app.get("/api/security/password/status")
-async def ada_password_status(request: Request):
-
-    user = require_user(request)
-
-    return {
-        "configured": _ada_password_exists(user["id"]),
-        "computer_control_available": os.name == "nt"
-    }
-
-
-@app.post("/api/security/password/setup")
-async def ada_password_setup(request: Request):
-
-    user = require_user(request)
-
-    if _ada_password_exists(user["id"]):
-        raise HTTPException(
-            status_code=409,
-            detail="Action password already exists."
-        )
-
-    data = await request.json()
-    password = str(data.get("password") or "")
-
-    _ada_set_password(
-        user["id"],
-        password
-    )
-
-    return {
-        "success": True
-    }
-
-
-@app.post("/api/security/password/verify")
-async def ada_password_verify(request: Request):
-
-    user = require_user(request)
-
-    data = await request.json()
-    password = str(data.get("password") or "")
-
-    return {
-        "valid": _ada_verify_password(
-            user["id"],
-            password
-        )
-    }
-
-
-@app.post("/api/security/password/change")
-async def ada_password_change(request: Request):
-
-    user = require_user(request)
-
-    data = await request.json()
-
-    old_password = str(
-        data.get("old_password") or ""
-    )
-
-    new_password = str(
-        data.get("new_password") or ""
-    )
-
-    if not _ada_verify_password(
-        user["id"],
-        old_password
-    ):
-        raise HTTPException(
-            status_code=403,
-            detail="Previous password is incorrect."
-        )
-
-    _ada_set_password(
-        user["id"],
-        new_password
-    )
-
-    return {
-        "success": True
-    }
-
-
-def _ada_desktop_plan(message):
-
-    try:
-        from desktop_app.autonomous_controller import AutonomousAI
-
-        agent = AutonomousAI()
-
-        return agent.planner.make_plan(
-            message
-        )
-
-    except Exception:
-        return {
-            "type": "ai_answer"
-        }
-
-
-def _ada_is_computer_action(plan):
-
-    kind = str(
-        plan.get("type") or ""
-    ).strip()
-
-    # Pure conversation never needs the action password.
-    if kind in {
-        "",
-        "answer",
-        "ai_answer"
-    }:
-        return False
-
-    # Every executable controller plan is protected.
-    return True
-
-
-def _ada_execute_computer_action(message):
-
-    if os.name != "nt":
-        return {
-            "success": False,
-            "message": (
-                "Computer control is available only from the "
-                "local Windows Autonomous Desktop AI app."
-            )
-        }
-
-    from desktop_app.autonomous_controller import AutonomousAI
-
-    agent = AutonomousAI()
-
-    return agent.run(
-        message
-    )
-
-
-def _ada_save_action_exchange(
-    chat_id,
-    message,
-    answer
-):
-    timestamp = now()
-
-    conn = db()
-
-    conn.execute(
-        """
-        INSERT INTO messages
-        (
-            chat_id,
-            role,
-            content,
-            created_at
-        )
-        VALUES (?, 'user', ?, ?)
-        """,
-        (
-            chat_id,
-            message,
-            timestamp
-        )
-    )
-
-    conn.execute(
-        """
-        INSERT INTO messages
-        (
-            chat_id,
-            role,
-            content,
-            created_at
-        )
-        VALUES (?, 'assistant', ?, ?)
-        """,
-        (
-            chat_id,
-            answer,
-            timestamp
-        )
-    )
-
-    conn.execute(
-        """
-        UPDATE chats
-        SET updated_at = ?
-        WHERE id = ?
-        """,
-        (
-            timestamp,
-            chat_id
-        )
-    )
-
-    conn.commit()
-    conn.close()
-
-
-# ===== END ADA ACTION PASSWORD SECURITY V1 =====
-
-
 @app.post("/api/chat")
 async def chat(
     request: Request,
@@ -1555,45 +1228,6 @@ async def chat(
         guest_hash = token_hash(
             token
         )
-
-    # ADA_ACTION_PASSWORD_GATE_V1
-    ada_plan = _ada_desktop_plan(message)
-    ada_computer_action = _ada_is_computer_action(
-        ada_plan
-    )
-
-    if ada_computer_action:
-
-        if user is None:
-            raise HTTPException(
-                status_code=401,
-                detail=(
-                    "Sign in before allowing Autonomous AI "
-                    "to control this computer."
-                )
-            )
-
-        if not _ada_password_exists(
-            user["id"]
-        ):
-            raise HTTPException(
-                status_code=428,
-                detail="PASSWORD_SETUP_REQUIRED"
-            )
-
-        supplied_password = request.headers.get(
-            "X-ADA-Action-Password",
-            ""
-        )
-
-        if not _ada_verify_password(
-            user["id"],
-            supplied_password
-        ):
-            raise HTTPException(
-                status_code=403,
-                detail="ACTION_PASSWORD_REQUIRED"
-            )
 
     chat_id = body.chat_id
 
@@ -1712,35 +1346,6 @@ async def chat(
 
         conn.commit()
         conn.close()
-
-    # ADA_EXECUTE_PROTECTED_ACTION_V1
-    if ada_computer_action:
-
-        action_result = await asyncio.to_thread(
-            _ada_execute_computer_action,
-            message
-        )
-
-        answer = str(
-            action_result.get("message")
-            or "Computer action finished."
-        )
-
-        _ada_save_action_exchange(
-            chat_id,
-            message,
-            answer
-        )
-
-        return {
-            "chat_id": chat_id,
-            "answer": answer,
-            "guest": False,
-            "computer_action": True,
-            "action_success": bool(
-                action_result.get("success")
-            )
-        }
 
     try:
 
@@ -2298,11 +1903,6 @@ AUTONOMOUS_GENERATED_DIR.mkdir(
     exist_ok=True
 )
 
-
-
-@app.get("/chess")
-async def ada_chess_page():
-    return FileResponse(STATIC_DIR / "index.html")
 
 @app.get("/creator")
 async def autonomous_creator():
@@ -3151,6 +2751,177 @@ async def autonomous_chess_legal_moves(
     }
 
 # ============================================================
+# ADA_COMFY_BRIDGE_START
+# ============================================================
+
+try:
+    from . import comfyui_service as _ada_comfy
+except Exception:
+    )
+@app.get("/api/comfy/status")
+async def ada_comfy_status():
+
+    return _ada_comfy.status()
+
+
+@app.get("/api/comfy/models")
+async def ada_comfy_models():
+
+    try:
+        return {
+            "ok": True,
+            "models":
+                _ada_comfy.find_checkpoints()
+        }
+
+    except Exception as e:
+
+        return {
+            "ok": False,
+            "error": str(e)
+        }
+
+
+@app.post("/api/comfy/image")
+async def ada_comfy_image(request: Request):
+
+    try:
+
+        data = await request.json()
+
+        prompt = str(
+            data.get(
+                "prompt",
+                ""
+            )
+        ).strip()
+
+        negative = str(
+            data.get(
+                "negative",
+                ""
+            )
+        )
+
+        width = int(
+            data.get(
+                "width",
+                512
+            )
+        )
+
+        height = int(
+            data.get(
+                "height",
+                512
+            )
+        )
+
+        if not prompt:
+
+            return {
+                "ok": False,
+                "error":
+                    "Image prompt is required."
+            }
+
+        return _ada_comfy.generate_image(
+            prompt,
+            negative,
+            width,
+            height
+        )
+
+    except Exception as e:
+
+        return {
+            "ok": False,
+            "error": str(e)
+        }
+
+
+@app.post("/api/comfy/video")
+async def ada_comfy_video(request: Request):
+
+    try:
+
+        data = await request.json()
+
+        prompt = str(
+            data.get(
+                "prompt",
+                ""
+            )
+        ).strip()
+
+        if not prompt:
+
+            return {
+                "ok": False,
+                "error":
+                    "Video prompt is required."
+            }
+
+        return _ada_comfy.generate_video(
+            prompt
+        )
+
+    except Exception as e:
+
+        return {
+            "ok": False,
+            "error": str(e)
+        }
+
+
+@app.get("/api/comfy/history/{prompt_id}")
+async def ada_comfy_history(
+    prompt_id: str
+):
+
+    try:
+
+        return {
+            "ok": True,
+            "history":
+                _ada_comfy.history(
+                    prompt_id
+                )
+        }
+
+    except Exception as e:
+
+        return {
+            "ok": False,
+            "error": str(e)
+        }
+
+
+@app.get("/api/comfy/files/{prompt_id}")
+async def ada_comfy_files(
+    prompt_id: str
+):
+
+    try:
+
+        return {
+            "ok": True,
+            "files":
+                _ada_comfy.find_generated_files(
+                    prompt_id
+                )
+        }
+
+    except Exception as e:
+
+        return {
+            "ok": False,
+            "error": str(e)
+        }
+
+
+# ============================================================
+# ADA_COMFY_BRIDGE_END
 # ============================================================
 
 # ============================================================
@@ -3236,331 +3007,4 @@ except Exception as _generated_error:
 
 
 
-
-
-
-
-
-
-# ============================================================
-# ADA FINAL CHESS FEATURE API
-# ============================================================
-
-@app.get("/api/autonomous/chess/state")
-async def ada_chess_state(game_id: str):
-    """
-    Return authoritative chess state from python-chess.
-
-    The frontend must NEVER guess whether the king is in check
-    from the FEN string alone.
-    """
-
-    game = chess_get_game(game_id)
-
-    if not game:
-        return {
-            "ok": False,
-            "error": "Chess game not found"
-        }
-
-    board = game.board
-
-    check = bool(board.is_check())
-
-    check_square = None
-
-    if check:
-        try:
-            king_square = board.king(board.turn)
-
-            if king_square is not None:
-                check_square = chess.square_name(king_square)
-
-        except Exception:
-            check_square = None
-
-    legal_moves = []
-
-    try:
-        legal_moves = [
-            move.uci()
-            for move in board.legal_moves
-        ]
-    except Exception:
-        legal_moves = []
-
-    return {
-        "ok": True,
-        "game_id": game_id,
-        "fen": board.fen(),
-        "turn": "white" if board.turn else "black",
-        "check": check,
-        "check_square": check_square,
-        "game_over": bool(board.is_game_over()),
-        "result": game.result,
-        "legal_moves": legal_moves,
-        "moves": list(game.moves),
-        "color": game.player_color,
-        "difficulty": game.difficulty
-    }
-
-
-@app.post("/api/autonomous/chess/restart")
-async def ada_chess_restart(payload: dict):
-    color = str(payload.get("color", "white")).lower()
-    difficulty = str(payload.get("difficulty", "Medium"))
-
-    if color not in ("white", "black"):
-        color = "white"
-
-    if difficulty not in LEVELS:
-        difficulty = "Medium"
-
-    try:
-        new_game = chess_start_game(
-            color=color,
-            difficulty=difficulty
-        )
-
-        # If the human selected black, the computer gets
-        # the first move.
-        if color == "black" and not new_game.board.is_game_over():
-            new_game.engine_move()
-
-        return {
-            "ok": True,
-            "game_id": new_game.game_id,
-            "fen": new_game.board.fen(),
-            "color": new_game.player_color,
-            "difficulty": new_game.difficulty,
-            "game_over": bool(new_game.board.is_game_over()),
-            "result": new_game.result
-        }
-
-    except Exception as exc:
-        return {
-            "ok": False,
-            "error": str(exc)
-        }
-
-
-@app.post("/api/autonomous/chess/resign")
-async def ada_chess_resign(payload: dict):
-    game_id = str(payload.get("game_id", ""))
-
-    game = chess_get_game(game_id)
-
-    if not game:
-        return {
-            "ok": False,
-            "error": "Chess game not found"
-        }
-
-    if game.result:
-        return {
-            "ok": True,
-            "fen": game.board.fen(),
-            "result": game.result,
-            "game_over": True
-        }
-
-    if str(game.player_color).lower() == "white":
-        game.result = "0-1"
-    else:
-        game.result = "1-0"
-
-    try:
-        game._save()
-    except Exception:
-        pass
-
-    return {
-        "ok": True,
-        "fen": game.board.fen(),
-        "result": game.result,
-        "game_over": True
-    }
-
-
-@app.post("/api/autonomous/chess/draw")
-async def ada_chess_draw(payload: dict):
-    game_id = str(payload.get("game_id", ""))
-
-    game = chess_get_game(game_id)
-
-    if not game:
-        return {
-            "ok": False,
-            "error": "Chess game not found"
-        }
-
-    if game.result:
-        return {
-            "ok": True,
-            "fen": game.board.fen(),
-            "result": game.result,
-            "game_over": True
-        }
-
-    game.result = "1/2-1/2"
-
-    try:
-        game._save()
-    except Exception:
-        pass
-
-    return {
-        "ok": True,
-        "fen": game.board.fen(),
-        "result": game.result,
-        "game_over": True
-    }
-
-
-@app.post("/api/autonomous/chess/settings")
-async def ada_chess_settings(payload: dict):
-    game_id = str(payload.get("game_id", ""))
-    difficulty = str(payload.get("difficulty", "Medium"))
-
-    game = chess_get_game(game_id)
-
-    if not game:
-        return {
-            "ok": False,
-            "error": "Chess game not found"
-        }
-
-    if difficulty not in LEVELS:
-        return {
-            "ok": False,
-            "error": "Invalid difficulty"
-        }
-
-    game.difficulty = difficulty
-
-    try:
-        game._save()
-    except Exception:
-        pass
-
-    return {
-        "ok": True,
-        "game_id": game.game_id,
-        "difficulty": game.difficulty,
-        "fen": game.board.fen(),
-        "game_over": bool(game.board.is_game_over()),
-        "result": game.result
-    }
-
-
-# ============================================================
-# LOCAL GEMINI VIDEO DOWNLOAD STATUS
-# ============================================================
-
-@app.get("/api/autonomous/video/local-status/{operation_id:path}")
-async def ada_local_video_status(operation_id: str):
-
-    try:
-
-        api_key = os.getenv("GEMINI_API_KEY")
-
-        if not api_key:
-            return {
-                "status": "error",
-                "error": "GEMINI_API_KEY is not configured."
-            }
-
-        client = genai.Client(api_key=api_key)
-
-        operation = client.operations.get(
-            name=operation_id
-        )
-
-        if not getattr(operation, "done", False):
-
-            return {
-                "status": "processing",
-                "operation_id": operation_id
-            }
-
-        # Gemini can report an operation as done while the
-        # response itself contains an error.
-        op_error = getattr(operation, "error", None)
-
-        if op_error:
-            return {
-                "status": "error",
-                "error": str(op_error)
-            }
-
-        response = getattr(operation, "response", None)
-
-        if response is None:
-            return {
-                "status": "error",
-                "error": "Gemini returned no video response."
-            }
-
-        videos = getattr(
-            response,
-            "generated_videos",
-            None
-        )
-
-        if not videos:
-            return {
-                "status": "error",
-                "error": "Gemini completed without a generated video."
-            }
-
-        generated = videos[0]
-
-        video = getattr(
-            generated,
-            "video",
-            None
-        )
-
-        if video is None:
-            return {
-                "status": "error",
-                "error": "Gemini response did not contain a video file."
-            }
-
-        # Stable local filename.
-        import hashlib
-
-        safe_id = hashlib.sha256(
-            operation_id.encode("utf-8")
-        ).hexdigest()[:24]
-
-        AUTONOMOUS_GENERATED_DIR.mkdir(
-            parents=True,
-            exist_ok=True
-        )
-
-        destination = (
-            AUTONOMOUS_GENERATED_DIR /
-            f"gemini_video_{safe_id}.mp4"
-        )
-
-        if not destination.exists():
-
-            client.files.download(
-                file=video,
-                destination=str(destination)
-            )
-
-        return {
-            "status": "completed",
-            "operation_id": operation_id,
-            "url": f"/static/generated/{destination.name}"
-        }
-
-    except Exception as exc:
-
-        return {
-            "status": "error",
-            "error": str(exc)
-        }
 

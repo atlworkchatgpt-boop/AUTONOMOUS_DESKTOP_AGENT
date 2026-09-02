@@ -2558,3 +2558,300 @@ pre{overflow-x:auto!important}
 .ada-history-row button{border:0;border-radius:9px;padding:8px 11px;cursor:pointer}
 .ada-review{white-space:pre-wrap;font-family:ui-monospace,monospace;font-size:13px;line-height:1.55;background:rgba(128,128,128,.1);padding:12px;border-radius:10px;margin-top:12px}
 @media(max-width:700px){#chessBoard{width:min(92vw,520px)!important}.ada-history-row{align-items:flex-start;flex-direction:column}}
+
+/* ADA_NATIVE_OWNER_CSS */
+
+.ada-native-owner {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+
+    padding: 10px 12px;
+    margin: 8px 10px;
+
+    border-radius: 12px;
+
+    color: inherit;
+    text-decoration: none;
+
+    border: 1px solid rgba(255,255,255,.07);
+    background: rgba(255,255,255,.035);
+
+    transition:
+        background .16s ease,
+        transform .16s ease,
+        border-color .16s ease;
+}
+
+.ada-native-owner:hover {
+    background: rgba(255,255,255,.07);
+    border-color: rgba(255,255,255,.13);
+    transform: translateY(-1px);
+}
+
+.ada-native-owner-icon {
+    width: 32px;
+    height: 32px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 9px;
+
+    background: rgba(255,255,255,.07);
+}
+
+.ada-native-owner-small {
+    opacity: .55;
+    font-size: 10px;
+}
+
+.ada-native-owner-name {
+    font-size: 13px;
+    font-weight: 600;
+    margin-top: 2px;
+}
+
+
+
+/* ============================================================
+   ADA CLEAN CHESS BOARD
+   ============================================================ */
+
+#chessGame {
+    width: 100%;
+    visibility: visible;
+}
+
+#chessBoard {
+    display: grid !important;
+    position: relative;
+    box-sizing: border-box;
+    overflow: hidden;
+    border-radius: 12px;
+    border: 2px solid rgba(255,255,255,.15);
+}
+
+#chessBoard .chess-square {
+    appearance: none;
+    -webkit-appearance: none;
+    border: 0;
+    padding: 0;
+    margin: 0;
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family:
+        "Segoe UI Symbol",
+        "Noto Sans Symbols",
+        Arial,
+        sans-serif;
+    font-size: clamp(24px, 5vw, 52px);
+    line-height: 1;
+    cursor: pointer;
+    user-select: none;
+}
+
+#chessBoard .chess-light {
+    background: #e8edf2;
+    color: #111;
+}
+
+#chessBoard .chess-dark {
+    background: #718096;
+    color: #111;
+}
+
+#chessBoard .chess-square:hover {
+    filter: brightness(1.08);
+}
+
+#chessBoard .chess-selected {
+    outline: 4px solid #f5c542;
+    outline-offset: -4px;
+}
+
+#chessBoard .chess-legal {
+    box-shadow:
+        inset 0 0 0 5px rgba(40,180,120,.65);
+}
+
+@media(max-width:600px) {
+    #chessBoard {
+        width: min(92vw, 520px) !important;
+        height: min(92vw, 520px) !important;
+        min-width: 280px !important;
+        min-height: 280px !important;
+    }
+}
+
+
+/* ADA_CHESS_VISUAL_CSS_START */
+
+/*
+ * ============================================================
+ * PREVIOUS MOVE
+ * ============================================================
+ *
+ * Yellow belongs ONLY to the previous move.
+ */
+
+#chessBoard .ada-previous-move {
+    position: relative;
+    box-shadow:
+        inset 0 0 0 999px rgba(245, 197, 66, 0.58),
+        inset 0 0 0 3px rgba(245, 197, 66, 0.95);
+}
+
+/*
+ * Do not let previous-move yellow destroy the legal-move
+ * indicator. Legal squares retain their existing indicator.
+ */
+
+#chessBoard .ada-previous-move.chess-legal {
+    box-shadow:
+        inset 0 0 0 999px rgba(245, 197, 66, 0.58),
+        inset 0 0 0 3px rgba(245, 197, 66, 0.95),
+        inset 0 0 0 7px rgba(40, 180, 120, 0.45);
+}
+
+/*
+ * ============================================================
+ * SMOOTH PIECE ANIMATION
+ * ============================================================
+ */
+
+#chessBoard {
+    position: relative;
+    overflow: hidden;
+}
+
+#chessBoard .ada-chess-animated-piece {
+    position: absolute;
+    z-index: 50;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    pointer-events: none;
+    user-select: none;
+
+    line-height: 1;
+
+    transform:
+        translate(0, 0)
+        scale(1);
+
+    transition:
+        transform 280ms
+        cubic-bezier(.2,.8,.25,1);
+
+    will-change: transform;
+
+    text-shadow:
+        0 2px 5px rgba(0,0,0,.28);
+}
+
+#chessBoard .ada-chess-animated-piece.ada-piece-moving {
+    transform:
+        translate(0, 0)
+        scale(1.04);
+}
+
+#chessBoard .ada-piece-hidden {
+    color: transparent !important;
+    text-shadow: none !important;
+}
+
+/*
+ * Keep the legal move indicators visually separate.
+ */
+
+#chessBoard .chess-legal {
+    position: relative;
+}
+
+#chessBoard .chess-legal::after {
+    content: "";
+    position: absolute;
+
+    width: 18%;
+    height: 18%;
+
+    border-radius: 50%;
+
+    background: rgba(40,180,120,.78);
+
+    pointer-events: none;
+}
+
+#chessBoard .chess-legal:has(.piece)::after {
+    width: 76%;
+    height: 76%;
+
+    border-radius: 50%;
+
+    background: transparent;
+
+    border: 4px solid rgba(40,180,120,.70);
+}
+
+/*
+ * Selected piece remains distinct from previous-move yellow.
+ */
+
+#chessBoard .chess-selected {
+    outline:
+        4px solid rgba(255,255,255,.9);
+
+    outline-offset: -4px;
+}
+
+/*
+ * ============================================================
+ * EXISTING ADA WEBSITE STYLE
+ * ============================================================
+ *
+ * Don't replace the ChatGPT-style ADA interface.
+ * The chess modal inherits the existing website appearance.
+ */
+
+#chessModal {
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+}
+
+#chessGame {
+    width: 100%;
+}
+
+#chessGame #chessBoard {
+    margin-left: auto;
+    margin-right: auto;
+}
+
+/* ADA_CHESS_VISUAL_CSS_END */
+
+
+
+/* ADA ACTION PASSWORD UI V1 */
+
+#adaSecuritySetting {
+    transition:
+        background 0.18s ease,
+        transform 0.18s ease;
+}
+
+#adaSecuritySetting:hover {
+    transform: translateY(-1px);
+}
+
+#adaSecuritySetting strong::before {
+    content: "🔐 ";
+}
+
+/* END ADA ACTION PASSWORD UI V1 */

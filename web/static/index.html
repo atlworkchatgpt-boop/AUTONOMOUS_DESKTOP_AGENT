@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -36,7 +36,7 @@ window.MathJax = {
     async
     src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">
 </script>
-</head>
+<link rel="stylesheet" href="/static/css/ada_local_features.css"></head>
 
 <body>
 
@@ -79,14 +79,9 @@ window.MathJax = {
     >
 <!-- ADA_INSTALLER_MENU_START -->
 <div class="ada-installer-menu-item">
-<a
-href="/static/downloads/AutonomousAI_Setup.exe"
-download="AutonomousAI_Setup.exe"
-class="ada-download-installer"
-title="Download Autonomous AI for Windows"
->
+<a href="https://github.com/atlworkchatgpt-boop/AUTONOMOUS_DESKTOP_AGENT.git" target="_blank" rel="noopener" class="ada-download-installer" title="Open Autonomous Desktop AI GitHub repository">
 <span>▣</span>
-<span>Download Autonomous AI</span>
+<span>Open Autonomous AI GitHub</span>
 </a>
 </div>
 <!-- ADA_INSTALLER_MENU_END -->
@@ -183,7 +178,22 @@ title="Download Autonomous AI for Windows"
         </div>
 
 
-        <div class="sidebar-bottom">
+        
+<!-- ADA_NATIVE_OWNER_CARD -->
+<a href="/creator" class="ada-native-owner">
+    <div class="ada-native-owner-icon">◆</div>
+
+    <div>
+        <div class="ada-native-owner-small">
+            Creator & Owner
+        </div>
+
+        <div class="ada-native-owner-name">
+            Shreyansh Ray
+        </div>
+    </div>
+</a>
+<div class="sidebar-bottom">
 
             <button
                 class="nav-button"
@@ -676,6 +686,47 @@ title="Download Autonomous AI for Windows"
                 Your move
             </div>
 
+            <div
+                id="adaChessActionBar"
+                style="
+                    display:flex;
+                    gap:8px;
+                    flex-wrap:wrap;
+                    justify-content:center;
+                    margin-top:12px;
+                "
+            >
+
+                <button
+                    type="button"
+                    onclick="adaChessRestart()"
+                >
+                    Restart
+                </button>
+
+                <button
+                    type="button"
+                    onclick="adaChessDraw()"
+                >
+                    Draw
+                </button>
+
+                <button
+                    type="button"
+                    onclick="adaChessResign()"
+                >
+                    Resign
+                </button>
+
+                <button
+                    type="button"
+                    onclick="adaChessChangeDifficulty()"
+                >
+                    Change Computer
+                </button>
+
+            </div>
+
         </div>
 
     </div>
@@ -683,11 +734,33 @@ title="Download Autonomous AI for Windows"
 </div>
 
 
+
+<!-- ADA FINAL ACTION BUTTONS -->
+<div id="adaGithubDownloadButton"
+     style="margin:10px 16px 0 16px;">
+    <button
+        onclick="window.open('https://github.com/atlworkchatgpt-boop/AUTONOMOUS_DESKTOP_AGENT.git','_blank')"
+        style="
+            width:100%;
+            padding:11px 14px;
+            border:1px solid rgba(255,255,255,.12);
+            border-radius:10px;
+            background:rgba(255,255,255,.05);
+            color:inherit;
+            cursor:pointer;
+        ">
+        Download / GitHub Repository
+    </button>
+</div>
+
 <script src="/static/app.js?v=fullrepair1"></script>
 
 
-</body>
+<script src="/static/js/ada_controls.js"></script><script src="/static/js/ada_local_features.js"></script></body>
 </html>
+
+
+
 
 
 

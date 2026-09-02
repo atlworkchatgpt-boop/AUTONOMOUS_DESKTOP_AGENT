@@ -1,445 +1,343 @@
-﻿import os
+﻿import base64
+import hashlib
 import hmac
+import json
+import os
+import secrets
+import threading
 import tkinter as tk
-from tkinter import messagebox
-
-OWNER_NAME = "Shreyansh Ray"
-
-STARTUP_PASSWORD = os.getenv("GNG_STARTUP_PASSWORD", "gngaistart")
-ACTION_PASSWORD = os.getenv("GNG_ACTION_PASSWORD", "gngai")
-
-PASSWORD = ACTION_PASSWORD
-SECURITY_PASSWORD = ACTION_PASSWORD
-OWNER_PASSWORD = ACTION_PASSWORD
-
-BG = "#0f1117"
-CARD = "#171a23"
-CARD2 = "#1d212c"
-BORDER = "#303746"
-TEXT = "#f4f7fb"
-MUTED = "#8d96a8"
-ACCENT = "#10a37f"
-ACCENT_HOVER = "#13b88f"
-ERROR = "#ff647c"
+from pathlib import Path
+from tkinter import messagebox, simpledialog
 
 
-def _check(value, expected):
-    if value is None:
+APP_NAME = "Autonomous Desktop AI"
+
+APPDATA = Path(
+    os.getenv(
+        "APPDATA",
+        str(Path.home())
+    )
+)
+
+SECURITY_DIR = APPDATA / "AutonomousAI"
+SECURITY_FILE = SECURITY_DIR / "security.json"
+
+PBKDF2_ITERATIONS = 600000
+SALT_BYTES = 32
+HASH_BYTES = 32
+
+_prompt_lock = threading.Lock()
+
+
+def _ensure_directory():
+    SECURITY_DIR.mkdir(
+        parents=True,
+        exist_ok=True
+    )
+
+
+def _hash_password(password, salt):
+    return hashlib.pbkdf2_hmac(
+        "sha256",
+        str(password).encode("utf-8"),
+        salt,
+        PBKDF2_ITERATIONS,
+        dklen=HASH_BYTES
+    )
+
+
+def _load_security():
+    try:
+
+        if not SECURITY_FILE.exists():
+            return None
+
+        with SECURITY_FILE.open(
+            "r",
+            encoding="utf-8"
+        ) as f:
+            data = json.load(f)
+
+        if not isinstance(data, dict):
+            return None
+
+        if data.get("version") != 1:
+            return None
+
+        if not data.get("salt"):
+            return None
+
+        if not data.get("password_hash"):
+            return None
+
+        return data
+
+    except Exception:
+        return None
+
+
+def password_exists():
+    return _load_security() is not None
+
+
+def set_password(password):
+
+    password = str(password or "")
+
+    if len(password) < 6:
+        raise ValueError(
+            "Password must contain at least 6 characters."
+        )
+
+    _ensure_directory()
+
+    salt = secrets.token_bytes(
+        SALT_BYTES
+    )
+
+    password_hash = _hash_password(
+        password,
+        salt
+    )
+
+    data = {
+        "version": 1,
+        "algorithm": "PBKDF2-HMAC-SHA256",
+        "iterations": PBKDF2_ITERATIONS,
+        "salt": base64.b64encode(
+            salt
+        ).decode("ascii"),
+        "password_hash": base64.b64encode(
+            password_hash
+        ).decode("ascii")
+    }
+
+    temporary = SECURITY_FILE.with_suffix(
+        ".tmp"
+    )
+
+    with temporary.open(
+        "w",
+        encoding="utf-8"
+    ) as f:
+        json.dump(
+            data,
+            f,
+            indent=2
+        )
+
+    temporary.replace(
+        SECURITY_FILE
+    )
+
+    return True
+
+
+def check_action_password(password):
+
+    data = _load_security()
+
+    if not data:
         return False
-    return hmac.compare_digest(str(value), str(expected))
 
+    try:
 
-def check_startup_password(value):
-    return _check(value, STARTUP_PASSWORD)
-
-
-def check_action_password(value):
-    return _check(value, ACTION_PASSWORD)
-
-
-def authenticate_startup(value):
-    return check_startup_password(value)
-
-
-def authenticate_action(value):
-    return check_action_password(value)
-
-
-def authorize(action=None, password=None, *args, **kwargs):
-    if password is None and isinstance(action, str):
-        return check_action_password(action)
-
-    if password is not None:
-        return check_action_password(password)
-
-    return False
-
-
-class AuthWindow:
-    def __init__(self, mode="startup"):
-        self.mode = mode
-        self.result = False
-        self.root = tk.Tk()
-
-        self.root.title(
-            "Autonomous Desktop AI — Authentication"
-        )
-        self.root.geometry("470x430")
-        self.root.resizable(False, False)
-        self.root.configure(bg=BG)
-
-        self.root.protocol(
-            "WM_DELETE_WINDOW",
-            self.cancel
+        salt = base64.b64decode(
+            data["salt"]
         )
 
-        self.build()
-
-        self.root.after(
-            120,
-            self.focus_password
+        expected = base64.b64decode(
+            data["password_hash"]
         )
 
-    def build(self):
-        # Outer padding
-        outer = tk.Frame(
-            self.root,
-            bg=BG
-        )
-        outer.pack(
-            fill="both",
-            expand=True,
-            padx=24,
-            pady=24
+        actual = _hash_password(
+            password,
+            salt
         )
 
-        # Main card
-        card = tk.Frame(
-            outer,
-            bg=CARD,
-            highlightbackground=BORDER,
-            highlightthickness=1
-        )
-        card.pack(
-            fill="both",
-            expand=True
+        return hmac.compare_digest(
+            actual,
+            expected
         )
 
-        # AI icon
-        icon = tk.Canvas(
-            card,
-            width=72,
-            height=72,
-            bg=CARD,
-            highlightthickness=0
-        )
-        icon.pack(pady=(24, 8))
+    except Exception:
+        return False
 
-        icon.create_oval(
-            7, 7, 65, 65,
-            fill=ACCENT,
-            outline=""
-        )
 
-        icon.create_text(
-            36,
-            36,
-            text="AI",
-            fill="white",
-            font=("Segoe UI", 18, "bold")
-        )
+def check_startup_password(password):
+    return check_action_password(password)
 
-        tk.Label(
-            card,
-            text="AUTONOMOUS DESKTOP AI",
-            bg=CARD,
-            fg=TEXT,
-            font=("Segoe UI", 15, "bold")
-        ).pack()
 
-        tk.Label(
-            card,
-            text=(
-                "Secure owner authentication"
-                if self.mode == "startup"
-                else "Protected computer action"
-            ),
-            bg=CARD,
-            fg=MUTED,
-            font=("Segoe UI", 9)
-        ).pack(pady=(4, 15))
+def authenticate_action(password):
+    return check_action_password(password)
 
-        # Owner
-        owner = tk.Frame(
-            card,
-            bg=CARD2
-        )
-        owner.pack(
-            fill="x",
-            padx=28
-        )
 
-        tk.Label(
-            owner,
-            text="OWNER",
-            bg=CARD2,
-            fg=MUTED,
-            font=("Segoe UI", 8, "bold")
-        ).pack(
-            anchor="w",
-            padx=14,
-            pady=(10, 0)
-        )
+def authenticate_startup(password):
+    return check_startup_password(password)
 
-        tk.Label(
-            owner,
-            text=OWNER_NAME,
-            bg=CARD2,
-            fg=TEXT,
-            font=("Segoe UI", 11, "bold")
-        ).pack(
-            anchor="w",
-            padx=14,
-            pady=(2, 10)
-        )
 
-        # Password label
-        tk.Label(
-            card,
-            text=(
-                "Startup password"
-                if self.mode == "startup"
-                else "Owner authorization password"
-            ),
-            bg=CARD,
-            fg=TEXT,
-            font=("Segoe UI", 9, "bold")
-        ).pack(
-            anchor="w",
-            padx=28,
-            pady=(18, 6)
-        )
+def _create_password():
 
-        password_frame = tk.Frame(
-            card,
-            bg=CARD2,
-            highlightbackground=BORDER,
-            highlightthickness=1
-        )
-        password_frame.pack(
-            fill="x",
-            padx=28
-        )
+    root = tk.Tk()
+    root.withdraw()
 
-        self.password = tk.Entry(
-            password_frame,
-            bg=CARD2,
-            fg=TEXT,
-            insertbackground=TEXT,
-            relief="flat",
-            bd=0,
-            show="•",
-            font=("Segoe UI", 11)
-        )
+    try:
 
-        self.password.pack(
-            side="left",
-            fill="x",
-            expand=True,
-            padx=(12, 4),
-            pady=11
-        )
-
-        self.visible = False
-
-        self.show_button = tk.Button(
-            password_frame,
-            text="SHOW",
-            command=self.toggle_password,
-            bg=CARD2,
-            fg=MUTED,
-            activebackground=CARD2,
-            activeforeground=TEXT,
-            relief="flat",
-            bd=0,
-            font=("Segoe UI", 8, "bold"),
-            cursor="hand2"
-        )
-
-        self.show_button.pack(
-            side="right",
-            padx=10
-        )
-
-        # Status
-        self.status = tk.Label(
-            card,
-            text="Enter your password to continue.",
-            bg=CARD,
-            fg=MUTED,
-            font=("Segoe UI", 8)
-        )
-
-        self.status.pack(
-            pady=(10, 4)
-        )
-
-        # Authenticate button
-        self.login_button = tk.Button(
-            card,
-            text="UNLOCK",
-            command=self.submit,
-            bg=ACCENT,
-            fg="white",
-            activebackground=ACCENT_HOVER,
-            activeforeground="white",
-            relief="flat",
-            bd=0,
-            font=("Segoe UI", 10, "bold"),
-            cursor="hand2"
-        )
-
-        self.login_button.pack(
-            fill="x",
-            padx=28,
-            pady=(4, 8),
-            ipady=8
-        )
-
-        # Cancel
-        tk.Button(
-            card,
-            text="Cancel",
-            command=self.cancel,
-            bg=CARD,
-            fg=MUTED,
-            activebackground=CARD,
-            activeforeground=TEXT,
-            relief="flat",
-            bd=0,
-            font=("Segoe UI", 9),
-            cursor="hand2"
-        ).pack(
-            pady=(0, 15)
-        )
-
-        self.password.bind(
-            "<Return>",
-            lambda e: self.submit()
-        )
-
-    def focus_password(self):
         try:
-            self.root.lift()
-            self.root.attributes("-topmost", True)
-            self.password.focus_force()
-
-            self.root.after(
-                700,
-                lambda: self.root.attributes(
-                    "-topmost",
-                    False
-                )
+            root.attributes(
+                "-topmost",
+                True
             )
         except Exception:
             pass
 
-    def toggle_password(self):
-        self.visible = not self.visible
+        while True:
 
-        self.password.configure(
-            show="" if self.visible else "•"
-        )
-
-        self.show_button.configure(
-            text="HIDE" if self.visible else "SHOW"
-        )
-
-    def submit(self):
-        value = self.password.get()
-
-        if not value:
-            self.status.configure(
-                text="Please enter your password.",
-                fg=ERROR
-            )
-            self.shake()
-            return
-
-        self.login_button.configure(
-            text="VERIFYING...",
-            state="disabled"
-        )
-
-        self.status.configure(
-            text="Verifying owner credentials...",
-            fg=ACCENT
-        )
-
-        self.root.after(
-            350,
-            lambda: self.verify(value)
-        )
-
-    def verify(self, value):
-        if self.mode == "startup":
-            valid = check_startup_password(value)
-        else:
-            valid = check_action_password(value)
-
-        if valid:
-            self.status.configure(
-                text="✓ Authentication successful",
-                fg=ACCENT
+            password = simpledialog.askstring(
+                APP_NAME,
+                "Create your computer-change password.\n\n"
+                "This password protects actions that change your computer.\n\n"
+                "Minimum 6 characters.",
+                parent=root,
+                show="*"
             )
 
-            self.root.after(
-                350,
-                self.success
-            )
+            if password is None:
+                return False
 
-        else:
-            self.status.configure(
-                text="✕ Incorrect password — try again.",
-                fg=ERROR
-            )
+            password = str(password)
 
-            self.password.delete(
-                0,
-                "end"
-            )
+            if len(password) < 6:
 
-            self.login_button.configure(
-                text="UNLOCK",
-                state="normal"
-            )
-
-            self.shake()
-
-    def shake(self):
-        original = self.root.geometry()
-        x = self.root.winfo_x()
-        y = self.root.winfo_y()
-
-        offsets = [-8, 8, -6, 6, -3, 3, 0]
-
-        def move(i=0):
-            if i >= len(offsets):
-                self.root.geometry(
-                    f"470x430+{x}+{y}"
+                messagebox.showerror(
+                    APP_NAME,
+                    "Password must contain at least 6 characters.",
+                    parent=root
                 )
-                return
 
-            self.root.geometry(
-                f"470x430+{x + offsets[i]}+{y}"
+                continue
+
+            confirmation = simpledialog.askstring(
+                APP_NAME,
+                "Confirm your computer-change password.",
+                parent=root,
+                show="*"
             )
 
-            self.root.after(
-                35,
-                lambda: move(i + 1)
+            if confirmation is None:
+                return False
+
+            if password != confirmation:
+
+                messagebox.showerror(
+                    APP_NAME,
+                    "The passwords do not match.",
+                    parent=root
+                )
+
+                continue
+
+            set_password(
+                password
             )
 
-        move()
+            messagebox.showinfo(
+                APP_NAME,
+                "Password created successfully.\n\n"
+                "Computer-changing actions are now protected.",
+                parent=root
+            )
 
-    def success(self):
-        self.result = True
-        self.root.destroy()
+            return True
 
-    def cancel(self):
-        self.result = False
-        self.root.destroy()
+    finally:
 
-    def show(self):
-        self.root.mainloop()
-        return self.result
+        try:
+            root.destroy()
+        except Exception:
+            pass
 
 
 def ensure_password():
-    return AuthWindow("startup").show()
+
+    if password_exists():
+        return True
+
+    return _create_password()
 
 
-def request_action_password():
-    return AuthWindow("action").show()
+def request_action_password(
+    action="Protected computer action"
+):
+
+    with _prompt_lock:
+
+        root = tk.Tk()
+        root.withdraw()
+
+        try:
+
+            try:
+                root.attributes(
+                    "-topmost",
+                    True
+                )
+            except Exception:
+                pass
+
+            password = simpledialog.askstring(
+                APP_NAME,
+                "PASSWORD REQUIRED\n\n"
+                + str(action),
+                parent=root,
+                show="*"
+            )
+
+            if password is None:
+                return False
+
+            if check_action_password(
+                password
+            ):
+                return True
+
+            messagebox.showerror(
+                APP_NAME,
+                "Incorrect password.\n\n"
+                "The computer action was blocked.",
+                parent=root
+            )
+
+            return False
+
+        finally:
+
+            try:
+                root.destroy()
+            except Exception:
+                pass
+
+
+def authorize(
+    action=None,
+    password=None,
+    *args,
+    **kwargs
+):
+
+    if not password_exists():
+
+        if not ensure_password():
+            return False
+
+    if password is not None:
+        return check_action_password(
+            password
+        )
+
+    return request_action_password(
+        action or "Protected computer action"
+    )
 
 
 def is_owner(value):
@@ -447,8 +345,36 @@ def is_owner(value):
 
 
 def require_action_password(value):
+
     if not check_action_password(value):
         raise PermissionError(
             "Owner authorization required."
         )
+
     return True
+
+
+class AuthWindow:
+
+    def __init__(
+        self,
+        mode="startup"
+    ):
+        self.mode = mode
+        self.result = False
+
+    def show(self):
+
+        if self.mode == "startup":
+            self.result = ensure_password()
+        else:
+            self.result = request_action_password()
+
+        return self.result
+
+
+PASSWORD = None
+SECURITY_PASSWORD = None
+OWNER_PASSWORD = None
+STARTUP_PASSWORD = None
+ACTION_PASSWORD = None
