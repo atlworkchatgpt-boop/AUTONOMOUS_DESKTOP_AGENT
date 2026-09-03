@@ -1,4 +1,4 @@
-
+﻿
 // ADA CREATOR / OWNER INFORMATION
 window.ADA_CREATOR_INFO = {
     creator: "Shreyansh Ray",
@@ -220,7 +220,7 @@ function formatBasicMarkdown(text) {
 
     safe = safe.replace(
         /^[-*] (.+)$/gm,
-        "• $1"
+        "â€¢ $1"
     );
 
     for (
@@ -1780,7 +1780,7 @@ async function loadMemories() {
 
             meta.textContent =
                 memory.category +
-                " • importance " +
+                " â€¢ importance " +
                 memory.importance;
 
             copy.appendChild(text);
@@ -2834,15 +2834,7 @@ window.addEventListener(
 (function(){
     "use strict";
 
-    const ADA_FINAL_WEB_MODE =
-    !["localhost", "127.0.0.1"].includes(
-        window.location.hostname
-    );
-
-const ADA_FINAL_GITHUB =
-    "https://github.com/atlworkchatgpt-boop/AUTONOMOUS_DESKTOP_AGENT";
-
-const SELECTORS = {
+    const SELECTORS = {
         login: ["#loginView"],
         chat: ["#chat"],
         input: ["#input"],
@@ -3148,7 +3140,7 @@ async function mediaRequest(url,prompt){
             const game=document.getElementById("chessGame");
             if(setup)setup.classList.add("hidden");
             if(game)game.classList.remove("hidden");
-            if(status)status.textContent="Your turn • "+data.difficulty;
+            if(status)status.textContent="Your turn â€¢ "+data.difficulty;
             drawBoard();
         }catch(error){
             if(status)status.textContent="Chess error: "+error.message;
@@ -5001,18 +4993,18 @@ async function mediaRequest(url,prompt){
     function adaPiece(piece) {
 
         const pieces = {
-            K: "♔",
-            Q: "♕",
-            R: "♖",
-            B: "♗",
-            N: "♘",
-            P: "♙",
+            K: "â™”",
+            Q: "â™•",
+            R: "â™–",
+            B: "â™—",
+            N: "â™˜",
+            P: "â™™",
 
-            k: "♚",
-            q: "♛",
-            r: "♜",
-            b: "♝",
-            n: "♞",
+            k: "â™š",
+            q: "â™›",
+            r: "â™œ",
+            b: "â™",
+            n: "â™ž",
             p: "♟"
         };
 
@@ -5421,7 +5413,7 @@ async function mediaRequest(url,prompt){
         if (state.check) {
 
             adaChessStatus(
-                "♔ CHECK — the king is under attack."
+                "â™” CHECK â€” the king is under attack."
             );
 
         } else if (state.game_over) {
@@ -6500,7 +6492,7 @@ async function mediaRequest(url,prompt){
                     data.engine_move
                         ? "Computer played " +
                           data.engine_move +
-                          " — your move"
+                          " â€” your move"
                         : "Your move"
                 );
             }
@@ -6595,7 +6587,7 @@ async function mediaRequest(url,prompt){
                 );
             } else if (cleanColor === "black") {
                 showStatus(
-                    "Computer has started — your move"
+                    "Computer has started â€” your move"
                 );
             } else {
                 showStatus("Your move");
@@ -7121,22 +7113,435 @@ async function mediaRequest(url,prompt){
 
 
 
+// ===== ADA ACTION PASSWORD UI V1 =====
 
-/*
- * ADA ACTION PASSWORD UI
- *
- * Disabled intentionally.
- *
- * Local authentication:
- *     Google sign-in
- *         ->
- *     authenticated session
- *         ->
- *     computer actions
- *
- * There is no second password prompt.
- */
+(() => {
 
+    const originalFetch =
+        window.fetch.bind(window);
+
+    let setupInProgress = false;
+
+
+    async function securityStatus() {
+
+        try {
+
+            const response = await originalFetch(
+                "/api/security/password/status",
+                {
+                    credentials: "include"
+                }
+            );
+
+            if (!response.ok) {
+                return null;
+            }
+
+            return await response.json();
+
+        } catch (_) {
+
+            return null;
+        }
+    }
+
+
+    async function setupPassword(force = false) {
+
+        if (setupInProgress) {
+            return false;
+        }
+
+        setupInProgress = true;
+
+        try {
+
+            const status =
+                await securityStatus();
+
+            if (
+                !force &&
+                (
+                    !status ||
+                    status.configured
+                )
+            ) {
+                return true;
+            }
+
+            const first = window.prompt(
+                "Create your Autonomous AI action password.\n\n" +
+                "This password will be required before AI can make " +
+                "changes to your computer.\n\n" +
+                "Minimum 6 characters:"
+            );
+
+            if (first === null) {
+                return false;
+            }
+
+            if (first.length < 6) {
+
+                alert(
+                    "Password must be at least 6 characters."
+                );
+
+                return false;
+            }
+
+            const second = window.prompt(
+                "Confirm your new action password:"
+            );
+
+            if (second !== first) {
+
+                alert(
+                    "Passwords do not match."
+                );
+
+                return false;
+            }
+
+            const response = await originalFetch(
+                "/api/security/password/setup",
+                {
+                    method: "POST",
+                    credentials: "include",
+                    headers: {
+                        "Content-Type":
+                            "application/json"
+                    },
+                    body: JSON.stringify({
+                        password: first
+                    })
+                }
+            );
+
+            if (!response.ok) {
+
+                const data =
+                    await response.json().catch(
+                        () => ({})
+                    );
+
+                if (response.status === 409) {
+                    return true;
+                }
+
+                alert(
+                    data.detail ||
+                    "Could not create password."
+                );
+
+                return false;
+            }
+
+            alert(
+                "Action password created successfully."
+            );
+
+            return true;
+
+        } finally {
+
+            setupInProgress = false;
+        }
+    }
+
+
+    async function changeActionPassword() {
+
+        const oldPassword = window.prompt(
+            "Enter your current action password:"
+        );
+
+        if (oldPassword === null) {
+            return;
+        }
+
+        const newPassword = window.prompt(
+            "Enter your new action password " +
+            "(minimum 6 characters):"
+        );
+
+        if (newPassword === null) {
+            return;
+        }
+
+        if (newPassword.length < 6) {
+
+            alert(
+                "Password must be at least 6 characters."
+            );
+
+            return;
+        }
+
+        const confirmPassword = window.prompt(
+            "Confirm your new password:"
+        );
+
+        if (newPassword !== confirmPassword) {
+
+            alert(
+                "Passwords do not match."
+            );
+
+            return;
+        }
+
+        const response = await originalFetch(
+            "/api/security/password/change",
+            {
+                method: "POST",
+                credentials: "include",
+                headers: {
+                    "Content-Type":
+                        "application/json"
+                },
+                body: JSON.stringify({
+                    old_password:
+                        oldPassword,
+                    new_password:
+                        newPassword
+                })
+            }
+        );
+
+        const data =
+            await response.json().catch(
+                () => ({})
+            );
+
+        if (!response.ok) {
+
+            alert(
+                data.detail ||
+                "Password could not be changed."
+            );
+
+            return;
+        }
+
+        alert(
+            "Action password changed successfully."
+        );
+    }
+
+
+    function addSecuritySetting() {
+
+        const list =
+            document.querySelector(
+                "#settingsModal .settings-list"
+            );
+
+        if (
+            !list ||
+            document.getElementById(
+                "adaSecuritySetting"
+            )
+        ) {
+            return;
+        }
+
+        const row =
+            document.createElement("div");
+
+        row.id =
+            "adaSecuritySetting";
+
+        row.className =
+            "setting-row";
+
+        row.innerHTML = `
+            <div>
+                <strong>
+                    Computer action password
+                </strong>
+
+                <span>
+                    Required before Autonomous AI
+                    changes or controls this computer
+                </span>
+            </div>
+
+            <button
+                class="setting-action"
+                id="adaChangePasswordButton"
+                type="button"
+            >
+                Change password
+            </button>
+        `;
+
+        list.appendChild(row);
+
+        document
+            .getElementById(
+                "adaChangePasswordButton"
+            )
+            .addEventListener(
+                "click",
+                changeActionPassword
+            );
+    }
+
+
+    const originalOpenSettings =
+        window.openSettings;
+
+    if (
+        typeof originalOpenSettings ===
+        "function"
+    ) {
+
+        window.openSettings =
+            function (...args) {
+
+                addSecuritySetting();
+
+                return originalOpenSettings.apply(
+                    this,
+                    args
+                );
+            };
+    }
+
+
+    window.fetch =
+        async function (
+            input,
+            init = {}
+        ) {
+
+            let response =
+                await originalFetch(
+                    input,
+                    init
+                );
+
+            const url =
+                typeof input === "string"
+                    ? input
+                    : (
+                        input &&
+                        input.url
+                    ) || "";
+
+            if (
+                !url.includes(
+                    "/api/chat"
+                )
+            ) {
+                return response;
+            }
+
+            if (
+                response.status !== 403 &&
+                response.status !== 428
+            ) {
+                return response;
+            }
+
+            let data = {};
+
+            try {
+
+                data =
+                    await response
+                        .clone()
+                        .json();
+
+            } catch (_) {}
+
+            if (
+                data.detail ===
+                "PASSWORD_SETUP_REQUIRED"
+            ) {
+
+                const created =
+                    await setupPassword(true);
+
+                if (!created) {
+                    return response;
+                }
+            }
+
+            else if (
+                data.detail !==
+                "ACTION_PASSWORD_REQUIRED"
+            ) {
+
+                return response;
+            }
+
+
+            const password =
+                window.prompt(
+                    "Autonomous AI wants to perform " +
+                    "a computer action.\n\n" +
+                    "Enter your action password to allow it:"
+                );
+
+            if (password === null) {
+
+                return response;
+            }
+
+
+            const headers =
+                new Headers(
+                    init.headers || {}
+                );
+
+            headers.set(
+                "X-ADA-Action-Password",
+                password
+            );
+
+
+            response =
+                await originalFetch(
+                    input,
+                    {
+                        ...init,
+                        headers
+                    }
+                );
+
+            return response;
+        };
+
+
+    async function startupSecurityCheck() {
+        // Startup authentication is Google sign-in only.
+        // Do not start action-password setup or verification here.
+        // Protected computer actions remain separately authorized.
+        addSecuritySetting();
+    }
+
+    if (
+        document.readyState === "loading") {
+
+        document.addEventListener(
+            "DOMContentLoaded",
+            startupSecurityCheck
+        );
+
+    } else {
+
+        startupSecurityCheck();
+    }
+
+
+    window.adaChangeActionPassword =
+        changeActionPassword;
+
+})();
+
+// ===== END ADA ACTION PASSWORD UI V1 =====
 
 /* ============================================================
    ADA CHESS FINAL PERFORMANCE + CONTROLS FIX
@@ -7235,7 +7640,7 @@ async function mediaRequest(url,prompt){
                 (data.result || "finished")
             );
         } else if (data.check) {
-            status("CHECK — the king is under attack.");
+            status("CHECK â€” the king is under attack.");
         } else {
             status("Your move");
         }
@@ -7851,1330 +8256,4 @@ window.autonomousFinalVideo = async function () {
 };
 
 
-
-
-
-/* ADA_FINAL_AUTH_CHESS_CONTROLLER */
-(function(){
-
-    "use strict";
-
-    let chessBusy=false;
-    let chessAnimating=false;
-
-    window.adaFinalChessPreviousMove =
-        window.adaFinalChessPreviousMove || null;
-
-    window.adaFinalChessCheckSquare =
-        window.adaFinalChessCheckSquare || null;
-
-    function board(){
-        return document.getElementById("chessBoard");
-    }
-
-    function status(text){
-        const el=document.getElementById("chessStatus");
-
-        if(el){
-            el.textContent=String(text||"");
-        }
-    }
-
-    function gameId(){
-
-        return (
-            window.autonomousFinalChessId ||
-            window.autonomousFinalChessGameId ||
-            window.chessGameId ||
-            null
-        );
-
-    }
-
-    function getColor(){
-
-        const el=document.getElementById("chessColor");
-
-        return (
-            el?.value ||
-            window.autonomousFinalChessColor ||
-            "white"
-        );
-
-    }
-
-    function getDifficulty(){
-
-        const el=document.getElementById("chessDifficulty");
-
-        return (
-            el?.value ||
-            window.autonomousFinalChessDifficulty ||
-            "Medium"
-        );
-
-    }
-
-    async function api(url,options={}){
-
-        const opts={
-            cache:"no-store",
-            credentials:"same-origin",
-            ...options
-        };
-
-        if(opts.body && typeof opts.body !== "string"){
-
-            opts.headers={
-                "Content-Type":"application/json",
-                ...(opts.headers||{})
-            };
-
-            opts.body=JSON.stringify(opts.body);
-        }
-
-        const response=await fetch(url,opts);
-
-        let data={};
-
-        try{
-            data=await response.json();
-        }catch(_){}
-
-        if(!response.ok || data.ok===false){
-
-            throw new Error(
-                data.detail ||
-                data.error ||
-                "Request failed."
-            );
-
-        }
-
-        return data;
-
-    }
-
-    function squareName(row,col){
-
-        return (
-            String.fromCharCode(97+col) +
-            String(8-row)
-        );
-
-    }
-
-    function findSquare(square){
-
-        const b=board();
-
-        if(!b || !square){
-            return null;
-        }
-
-        return b.querySelector(
-            '[data-square="'+square+'"]'
-        );
-
-    }
-
-    function clearVisuals(){
-
-        const b=board();
-
-        if(!b){
-            return;
-        }
-
-        b.querySelectorAll(
-            ".ada-final-previous-move"
-        ).forEach(el=>{
-            el.classList.remove(
-                "ada-final-previous-move"
-            );
-        });
-
-        b.querySelectorAll(
-            ".ada-final-check-square"
-        ).forEach(el=>{
-            el.classList.remove(
-                "ada-final-check-square"
-            );
-        });
-
-    }
-
-    function paintVisuals(){
-
-        clearVisuals();
-
-        const previous =
-            window.adaFinalChessPreviousMove;
-
-        if(previous){
-
-            const from=findSquare(previous.from);
-            const to=findSquare(previous.to);
-
-            if(from){
-                from.classList.add(
-                    "ada-final-previous-move"
-                );
-            }
-
-            if(to){
-                to.classList.add(
-                    "ada-final-previous-move"
-                );
-            }
-
-        }
-
-        const check =
-            window.adaFinalChessCheckSquare;
-
-        if(check){
-
-            const square=findSquare(check);
-
-            if(square){
-                square.classList.add(
-                    "ada-final-check-square"
-                );
-            }
-
-        }
-
-    }
-
-    function normalizeMove(move){
-
-        if(!move){
-            return null;
-        }
-
-        if(typeof move==="string"){
-
-            const m=move.trim();
-
-            if(m.length>=4){
-
-                return {
-                    from:m.slice(0,2),
-                    to:m.slice(2,4)
-                };
-
-            }
-
-        }
-
-        if(typeof move==="object"){
-
-            if(move.from && move.to){
-
-                return {
-                    from:String(move.from),
-                    to:String(move.to)
-                };
-
-            }
-
-            if(move.uci){
-
-                return normalizeMove(move.uci);
-
-            }
-
-            if(move.move){
-
-                return normalizeMove(move.move);
-
-            }
-
-            if(move.player){
-
-                return normalizeMove(move.player);
-
-            }
-
-            if(move.engine){
-
-                return normalizeMove(move.engine);
-
-            }
-
-        }
-
-        return null;
-
-    }
-
-    function lastMoveFromState(state){
-
-        if(!state){
-            return null;
-        }
-
-        const moves=state.moves;
-
-        if(Array.isArray(moves) && moves.length){
-
-            const last=moves[moves.length-1];
-
-            return normalizeMove(last);
-
-        }
-
-        return null;
-
-    }
-
-    /*
-     * Smooth animation.
-     *
-     * IMPORTANT:
-     * animation is visual only.
-     * It never delays the backend move.
-     */
-
-    function animateMove(from,to){
-
-        if(chessAnimating){
-            return;
-        }
-
-        const b=board();
-
-        if(!b || !from || !to){
-            return;
-        }
-
-        const fromCell=findSquare(from);
-        const toCell=findSquare(to);
-
-        if(!fromCell || !toCell){
-            return;
-        }
-
-        const piece =
-            fromCell.querySelector(
-                ".autonomous-final-piece"
-            ) ||
-            fromCell.querySelector(
-                ".autonomous-chess-piece"
-            );
-
-        if(!piece){
-            return;
-        }
-
-        try{
-
-            chessAnimating=true;
-
-            const a=
-                piece.getBoundingClientRect();
-
-            const target=
-                toCell.getBoundingClientRect();
-
-            const ghost=
-                piece.cloneNode(true);
-
-            ghost.className=
-                "ada-final-flying-piece";
-
-            ghost.style.position="fixed";
-            ghost.style.left=a.left+"px";
-            ghost.style.top=a.top+"px";
-            ghost.style.width=a.width+"px";
-            ghost.style.height=a.height+"px";
-            ghost.style.margin="0";
-            ghost.style.zIndex="999999";
-            ghost.style.pointerEvents="none";
-            ghost.style.transition=
-                "transform 150ms cubic-bezier(.2,.8,.2,1)";
-
-            document.body.appendChild(ghost);
-
-            requestAnimationFrame(()=>{
-
-                ghost.style.transform=
-                    "translate("+
-                    (target.left-a.left)+
-                    "px,"+
-                    (target.top-a.top)+
-                    "px)";
-
-            });
-
-            setTimeout(()=>{
-
-                ghost.remove();
-                chessAnimating=false;
-
-            },165);
-
-        }catch(_){
-
-            chessAnimating=false;
-
-        }
-
-    }
-
-    async function refreshChess(){
-
-        const id=gameId();
-
-        if(!id){
-            return null;
-        }
-
-        const state=await api(
-            "/api/autonomous/chess/state?game_id="+
-            encodeURIComponent(id)
-        );
-
-        window.autonomousFinalChessId=
-            state.game_id;
-
-        window.autonomousFinalFen=
-            state.fen;
-
-        window.autonomousFinalChessColor=
-            state.color;
-
-        const previous=
-            lastMoveFromState(state);
-
-        if(previous){
-
-            window.adaFinalChessPreviousMove=
-                previous;
-
-            /*
-             * Keep compatibility with older controllers.
-             */
-            window.adaChessLastMove=previous;
-
-        }
-
-        window.adaFinalChessCheckSquare=
-            state.check
-                ? state.check_square
-                : null;
-
-        window.adaChessCheckSquare=
-            window.adaFinalChessCheckSquare;
-
-        if(
-            typeof window.adaChessSetDifficulty===
-            "function"
-        ){
-
-            window.adaChessSetDifficulty(
-                state.difficulty || getDifficulty()
-            );
-
-        }
-
-        if(
-            typeof window.adaRenderChess===
-            "function"
-        ){
-
-            window.adaRenderChess(
-                state.fen,
-                state.legal_moves || []
-            );
-
-        }else if(
-            typeof window.drawBoard===
-            "function"
-        ){
-
-            await window.drawBoard();
-
-        }
-
-        setTimeout(
-            paintVisuals,
-            0
-        );
-
-        if(state.game_over){
-
-            status(
-                "Game over: "+
-                (state.result || "Finished")
-            );
-
-        }else if(state.check){
-
-            status(
-                "CHECK - the king is under attack."
-            );
-
-        }else if(
-            state.turn ===
-            (
-                state.color==="black"
-                    ? "black"
-                    : "white"
-            )
-        ){
-
-            status("Your move");
-
-        }
-
-        return state;
-
-    }
-
-    /*
-     * FINAL START.
-     */
-
-    window.adaFinalStartChess =
-        async function(){
-
-            if(chessBusy){
-                return;
-            }
-
-            chessBusy=true;
-
-            status("Starting Chess...");
-
-            try{
-
-                const data=await api(
-                    "/api/autonomous/chess/restart",
-                    {
-                        method:"POST",
-                        body:{
-                            color:getColor(),
-                            difficulty:getDifficulty()
-                        }
-                    }
-                );
-
-                window.autonomousFinalChessId=
-                    data.game_id;
-
-                window.autonomousFinalFen=
-                    data.fen;
-
-                window.autonomousFinalChessColor=
-                    data.color;
-
-                window.adaFinalChessPreviousMove=
-                    null;
-
-                window.adaChessLastMove=
-                    null;
-
-                window.adaFinalChessCheckSquare=
-                    null;
-
-                const setup=
-                    document.getElementById(
-                        "chessSetup"
-                    );
-
-                const game=
-                    document.getElementById(
-                        "chessGame"
-                    );
-
-                if(setup){
-
-                    setup.classList.add("hidden");
-                    setup.style.display="none";
-
-                }
-
-                if(game){
-
-                    game.classList.remove("hidden");
-                    game.style.display="";
-
-                }
-
-                await refreshChess();
-
-                status("Your move");
-
-            }catch(error){
-
-                status(
-                    "Chess error: "+
-                    error.message
-                );
-
-                console.error(error);
-
-            }finally{
-
-                chessBusy=false;
-
-            }
-
-        };
-
-    /*
-     * FINAL RESTART
-     */
-
-    window.adaChessRestart=
-        async function(){
-
-            if(chessBusy){
-                return;
-            }
-
-            chessBusy=true;
-
-            status("Starting new game...");
-
-            try{
-
-                const data=await api(
-                    "/api/autonomous/chess/restart",
-                    {
-                        method:"POST",
-                        body:{
-                            color:getColor(),
-                            difficulty:getDifficulty()
-                        }
-                    }
-                );
-
-                window.autonomousFinalChessId=
-                    data.game_id;
-
-                window.autonomousFinalFen=
-                    data.fen;
-
-                window.autonomousFinalChessColor=
-                    data.color;
-
-                window.adaFinalChessPreviousMove=null;
-                window.adaChessLastMove=null;
-                window.adaFinalChessCheckSquare=null;
-                window.adaChessCheckSquare=null;
-
-                await refreshChess();
-
-                status("New chess game started.");
-
-            }catch(error){
-
-                status(
-                    "Restart error: "+
-                    error.message
-                );
-
-            }finally{
-
-                chessBusy=false;
-
-            }
-
-        };
-
-    /*
-     * DRAW
-     */
-
-    window.adaChessDraw=
-        async function(){
-
-            if(chessBusy){
-                return;
-            }
-
-            const id=gameId();
-
-            if(!id){
-                status("Start a chess game first.");
-                return;
-            }
-
-            chessBusy=true;
-
-            try{
-
-                const data=await api(
-                    "/api/autonomous/chess/draw",
-                    {
-                        method:"POST",
-                        body:{
-                            game_id:id
-                        }
-                    }
-                );
-
-                window.autonomousFinalChessOver=true;
-
-                status(
-                    "Draw agreed."
-                );
-
-                if(
-                    typeof window.adaRenderChess===
-                    "function"
-                ){
-
-                    window.adaRenderChess(
-                        data.fen,
-                        []
-                    );
-
-                }
-
-                paintVisuals();
-
-            }catch(error){
-
-                status(
-                    "Draw error: "+
-                    error.message
-                );
-
-            }finally{
-
-                chessBusy=false;
-
-            }
-
-        };
-
-    /*
-     * RESIGN
-     */
-
-    window.adaChessResign=
-        async function(){
-
-            if(chessBusy){
-                return;
-            }
-
-            const id=gameId();
-
-            if(!id){
-                status("Start a chess game first.");
-                return;
-            }
-
-            chessBusy=true;
-
-            try{
-
-                const data=await api(
-                    "/api/autonomous/chess/resign",
-                    {
-                        method:"POST",
-                        body:{
-                            game_id:id
-                        }
-                    }
-                );
-
-                window.autonomousFinalChessOver=true;
-
-                status(
-                    "You resigned. Result: "+
-                    (data.result || "Finished")
-                );
-
-                if(
-                    typeof window.adaRenderChess===
-                    "function"
-                ){
-
-                    window.adaRenderChess(
-                        data.fen,
-                        []
-                    );
-
-                }
-
-                paintVisuals();
-
-            }catch(error){
-
-                status(
-                    "Resign error: "+
-                    error.message
-                );
-
-            }finally{
-
-                chessBusy=false;
-
-            }
-
-        };
-
-    /*
-     * CHANGE COMPUTER
-     */
-
-    window.adaChessChangeComputer=
-        async function(){
-
-            if(chessBusy){
-                return;
-            }
-
-            const id=gameId();
-
-            if(!id){
-                status("Start a chess game first.");
-                return;
-            }
-
-            const levels=[
-                "Easy",
-                "Medium",
-                "Hard",
-                "Expert",
-                "Master"
-            ];
-
-            const select=
-                document.getElementById(
-                    "chessDifficulty"
-                );
-
-            let current=
-                select?.value ||
-                "Medium";
-
-            let index=
-                levels.indexOf(current);
-
-            if(index<0){
-                index=1;
-            }
-
-            const next=
-                levels[
-                    (index+1)%levels.length
-                ];
-
-            chessBusy=true;
-
-            status(
-                "Changing computer to "+
-                next+
-                "..."
-            );
-
-            try{
-
-                const data=await api(
-                    "/api/autonomous/chess/settings",
-                    {
-                        method:"POST",
-                        body:{
-                            game_id:id,
-                            difficulty:next
-                        }
-                    }
-                );
-
-                if(select){
-
-                    select.value=
-                        data.difficulty || next;
-
-                }
-
-                if(
-                    typeof window.adaChessSetDifficulty===
-                    "function"
-                ){
-
-                    window.adaChessSetDifficulty(
-                        data.difficulty || next
-                    );
-
-                }
-
-                status(
-                    "Computer changed to "+
-                    (data.difficulty || next)+
-                    "."
-                );
-
-            }catch(error){
-
-                status(
-                    "Computer settings error: "+
-                    error.message
-                );
-
-            }finally{
-
-                chessBusy=false;
-
-            }
-
-        };
-
-    window.adaChessChangeDifficulty=
-        window.adaChessChangeComputer;
-
-    /*
-     * Wrap existing player move.
-     *
-     * We intentionally keep the existing backend move
-     * implementation because it already validates the move
-     * through python-chess.
-     */
-
-    const oldMove=window.adaChessMove;
-
-    if(
-        typeof oldMove==="function" &&
-        !window.__adaFinalMoveWrapped
-    ){
-
-        window.__adaFinalMoveWrapped=true;
-
-        window.adaChessMove=
-            async function(){
-
-                if(chessBusy){
-                    return;
-                }
-
-                chessBusy=true;
-
-                try{
-
-                    const result=
-                        await oldMove.apply(
-                            this,
-                            arguments
-                        );
-
-                    return result;
-
-                }finally{
-
-                    chessBusy=false;
-
-                }
-
-            };
-
-    }
-
-    /*
-     * BUTTON BINDING
-     *
-     * Event delegation means buttons remain functional even
-     * when the Chess modal is rebuilt dynamically.
-     */
-
-    function bindButtons(){
-
-        const root=
-            document.getElementById(
-                "chessModal"
-            );
-
-        if(!root){
-            return;
-        }
-
-        root.querySelectorAll(
-            "button"
-        ).forEach(button=>{
-
-            const text=
-                (
-                    button.textContent ||
-                    ""
-                )
-                .trim()
-                .toLowerCase();
-
-            if(
-                text.includes("restart") ||
-                text.includes("new game")
-            ){
-
-                button.onclick=
-                    window.adaChessRestart;
-
-            }else if(
-                text==="draw"
-            ){
-
-                button.onclick=
-                    window.adaChessDraw;
-
-            }else if(
-                text.includes("resign")
-            ){
-
-                button.onclick=
-                    window.adaChessResign;
-
-            }else if(
-                text.includes("change computer") ||
-                text.includes("change difficulty")
-            ){
-
-                button.onclick=
-                    window.adaChessChangeComputer;
-
-            }
-
-        });
-
-    }
-
-    /*
-     * Chess History / Piece History
-     */
-
-    async function showChessHistory(){
-
-        try{
-
-            const id=gameId();
-
-            if(!id){
-
-                status(
-                    "Start a chess game first."
-                );
-
-                return;
-
-            }
-
-            const state=await api(
-                "/api/autonomous/chess/state?game_id="+
-                encodeURIComponent(id)
-            );
-
-            const old=
-                document.getElementById(
-                    "adaFinalPieceHistory"
-                );
-
-            if(old){
-                old.remove();
-            }
-
-            const overlay=
-                document.createElement("div");
-
-            overlay.id=
-                "adaFinalPieceHistory";
-
-            overlay.className=
-                "ada-final-history-overlay";
-
-            const card=
-                document.createElement("div");
-
-            card.className=
-                "ada-final-history-card";
-
-            const close=
-                document.createElement("button");
-
-            close.type="button";
-            close.textContent="Close";
-            close.className=
-                "ada-final-history-close";
-
-            close.onclick=()=>{
-                overlay.remove();
-            };
-
-            const title=
-                document.createElement("h2");
-
-            title.textContent=
-                "Piece History";
-
-            const list=
-                document.createElement("div");
-
-            list.className=
-                "ada-final-history-list";
-
-            const moves=
-                Array.isArray(state.moves)
-                    ? state.moves
-                    : [];
-
-            if(!moves.length){
-
-                list.textContent=
-                    "No moves yet.";
-
-            }else{
-
-                moves.forEach((move,index)=>{
-
-                    const normalized=
-                        normalizeMove(move);
-
-                    const row=
-                        document.createElement(
-                            "div"
-                        );
-
-                    row.className=
-                        "ada-final-history-row";
-
-                    const number=
-                        document.createElement(
-                            "span"
-                        );
-
-                    number.textContent=
-                        String(index+1)+".";
-
-                    const text=
-                        document.createElement(
-                            "span"
-                        );
-
-                    if(normalized){
-
-                        text.textContent=
-                            normalized.from+
-                            " -> "+
-                            normalized.to;
-
-                    }else if(
-                        typeof move==="object"
-                    ){
-
-                        text.textContent=
-                            String(
-                                move.player ||
-                                move.engine ||
-                                move.move ||
-                                move.uci ||
-                                "Move"
-                            );
-
-                    }else{
-
-                        text.textContent=
-                            String(move);
-
-                    }
-
-                    row.appendChild(number);
-                    row.appendChild(text);
-
-                    list.appendChild(row);
-
-                });
-
-            }
-
-            card.appendChild(close);
-            card.appendChild(title);
-            card.appendChild(list);
-
-            overlay.appendChild(card);
-            document.body.appendChild(overlay);
-
-        }catch(error){
-
-            status(
-                "Piece History error: "+
-                error.message
-            );
-
-            console.error(error);
-
-        }
-
-    }
-
-    window.openChessHistory=
-        showChessHistory;
-
-    function addHistoryButton(){
-
-        const modal=
-            document.getElementById(
-                "chessModal"
-            );
-
-        if(!modal){
-            return;
-        }
-
-        if(
-            document.getElementById(
-                "adaFinalPieceHistoryButton"
-            )
-        ){
-            return;
-        }
-
-        const button=
-            document.createElement(
-                "button"
-            );
-
-        button.id=
-            "adaFinalPieceHistoryButton";
-
-        button.type="button";
-
-        button.textContent=
-            "Piece History";
-
-        button.className=
-            "secondary-button";
-
-        button.onclick=
-            showChessHistory;
-
-        const statusEl=
-            document.getElementById(
-                "chessStatus"
-            );
-
-        if(
-            statusEl &&
-            statusEl.parentElement
-        ){
-
-            statusEl.parentElement.appendChild(
-                button
-            );
-
-        }else{
-
-            modal.appendChild(button);
-
-        }
-
-    }
-
-    /*
-     * Replace the visual renderer with a wrapper that
-     * preserves the previous-move/check highlighting.
-     */
-
-    const oldRender=
-        window.adaRenderChess;
-
-    if(
-        typeof oldRender==="function" &&
-        !window.__adaFinalRenderWrapped
-    ){
-
-        window.__adaFinalRenderWrapped=true;
-
-        window.adaRenderChess=
-            function(fen,legal){
-
-                const previous=
-                    window.adaFinalChessPreviousMove;
-
-                if(previous){
-
-                    /*
-                     * Capture old position before renderer
-                     * replaces the board.
-                     */
-
-                    setTimeout(
-                        ()=>{
-                            animateMove(
-                                previous.from,
-                                previous.to
-                            );
-                        },
-                        0
-                    );
-
-                }
-
-                const result=
-                    oldRender.apply(
-                        this,
-                        arguments
-                    );
-
-                setTimeout(
-                    paintVisuals,
-                    0
-                );
-
-                return result;
-
-            };
-
-    }
-
-    /*
-     * Ensure startChess uses our reliable start.
-     */
-
-    window.startChess=
-        window.adaFinalStartChess;
-
-    window.addEventListener(
-        "load",
-        function(){
-
-            bindButtons();
-            addHistoryButton();
-
-            setTimeout(
-                bindButtons,
-                100
-            );
-
-            setTimeout(
-                bindButtons,
-                500
-            );
-
-            setTimeout(
-                addHistoryButton,
-                100
-            );
-
-        }
-    );
-
-    /*
-     * Keep dynamically-created controls connected without
-     * using a MutationObserver loop.
-     */
-
-    setInterval(
-        function(){
-
-            bindButtons();
-            addHistoryButton();
-
-        },
-        2000
-    );
-
-})();
 

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#171717">
 <title>Autonomous AI</title>
-<link rel="stylesheet" href="/static/style.css?v=20260902_symbols2?v=fullrepair1">
+<link rel="stylesheet" href="/static/style.css?v=fullrepair1">
 <script>
 window.MathJax = {
     tex: {
@@ -108,7 +108,7 @@ window.MathJax = {
                     onclick="toggleSidebar()"
                     title="Collapse sidebar"
                 >
-                    &#9776;
+                    ☰
                 </button>
 
             </div>
@@ -181,7 +181,7 @@ window.MathJax = {
         
 <!-- ADA_NATIVE_OWNER_CARD -->
 <a href="/creator" class="ada-native-owner">
-    <div class="ada-native-owner-icon">&#9670;</div>
+    <div class="ada-native-owner-icon">◆</div>
 
     <div>
         <div class="ada-native-owner-small">
@@ -243,7 +243,7 @@ window.MathJax = {
                     class="more-btn"
                     onclick="logout()"
                 >
-                    &#8943;
+                    ⋯
                 </button>
 
             </div>
@@ -261,7 +261,7 @@ window.MathJax = {
                 class="mobile-menu"
                 onclick="toggleSidebar()"
             >
-                &#9776;
+                ☰
             </button>
 
             <div
@@ -277,7 +277,7 @@ window.MathJax = {
                     id="status"
                     class="status ready"
                 >
-                    &#9679; READY
+                    ● READY
                 </span>
 
                 <button
@@ -285,7 +285,7 @@ window.MathJax = {
                     onclick="toggleTheme()"
                     title="Toggle theme"
                 >
-                    &#9676;
+                    ◐
                 </button>
 
                 <button
@@ -403,7 +403,7 @@ window.MathJax = {
                             onclick="recordAudio()"
                             title="Record audio"
                         >
-                            &#9679;
+                            ●
                         </button>
 
                     </div>
@@ -425,7 +425,7 @@ window.MathJax = {
                             class="send-button"
                             onclick="sendMessage()"
                         >
-                            &#8593;
+                            ↑
                         </button>
 
                     </div>
@@ -436,7 +436,7 @@ window.MathJax = {
 
 
             <div class="composer-hint">
-                Enter to send &#183; Shift+Enter for a new line &#183; Ctrl+K search
+                Enter to send · Shift+Enter for a new line · Ctrl+K search
             </div>
 
         </section>
@@ -469,7 +469,7 @@ window.MathJax = {
                 class="close-btn"
                 onclick="closeAllModals()"
             >
-                X
+                ×
             </button>
 
         </div>
@@ -563,7 +563,7 @@ window.MathJax = {
                 class="close-btn"
                 onclick="closeAllModals()"
             >
-                X
+                ×
             </button>
 
         </div>
@@ -616,7 +616,7 @@ window.MathJax = {
                 class="close-btn"
                 onclick="closeAllModals()"
             >
-                X
+                ×
             </button>
 
         </div>
@@ -753,14 +753,11 @@ window.MathJax = {
     </button>
 </div>
 
-<script src="/static/app.js?v=final-auth-chess-202609?v=20260902_symbols2?v=fullrepair1"></script>
+<script src="/static/app.js?v=fullrepair1"></script>
 
 
-<script src="/static/js/ada_controls.js"></script><script src="/static/js/ada_local_features.js"></script>
-</body>
+<script src="/static/js/ada_controls.js"></script><script src="/static/js/ada_local_features.js"></script></body>
 </html>
-
-
 
 
 

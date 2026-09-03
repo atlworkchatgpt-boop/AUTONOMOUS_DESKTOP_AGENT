@@ -1,11 +1,11 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#171717">
 <title>Autonomous AI</title>
-<link rel="stylesheet" href="/static/style.css?v=20260902_symbols2?v=fullrepair1">
+<link rel="stylesheet" href="/static/style.css?v=fullrepair1">
 <script>
 window.MathJax = {
     tex: {
@@ -80,7 +80,7 @@ window.MathJax = {
 <!-- ADA_INSTALLER_MENU_START -->
 <div class="ada-installer-menu-item">
 <a href="https://github.com/atlworkchatgpt-boop/AUTONOMOUS_DESKTOP_AGENT.git" target="_blank" rel="noopener" class="ada-download-installer" title="Open Autonomous Desktop AI GitHub repository">
-<span>▣</span>
+<span>â–£</span>
 <span>Open Autonomous AI GitHub</span>
 </a>
 </div>
@@ -108,7 +108,7 @@ window.MathJax = {
                     onclick="toggleSidebar()"
                     title="Collapse sidebar"
                 >
-                    &#9776;
+                    â˜°
                 </button>
 
             </div>
@@ -118,7 +118,7 @@ window.MathJax = {
                 class="new-chat-button"
                 onclick="newChat()"
             >
-                <span>＋</span>
+                <span>ï¼‹</span>
                 New chat
             </button>
 
@@ -126,7 +126,7 @@ window.MathJax = {
             <div class="search-wrap">
 
                 <span class="search-icon">
-                    ⌕
+                    âŒ•
                 </span>
 
                 <input
@@ -147,7 +147,7 @@ window.MathJax = {
                 class="nav-button"
                 onclick="openChess()"
             >
-                <span>♟</span>
+                <span>â™Ÿ</span>
                 Chess
             </button>
 
@@ -156,7 +156,7 @@ window.MathJax = {
                 class="nav-button"
                 onclick="document.getElementById('fileInput').click()"
             >
-                <span>＋</span>
+                <span>ï¼‹</span>
                 Upload file
             </button>
 
@@ -181,7 +181,7 @@ window.MathJax = {
         
 <!-- ADA_NATIVE_OWNER_CARD -->
 <a href="/creator" class="ada-native-owner">
-    <div class="ada-native-owner-icon">&#9670;</div>
+    <div class="ada-native-owner-icon">â—†</div>
 
     <div>
         <div class="ada-native-owner-small">
@@ -199,7 +199,7 @@ window.MathJax = {
                 class="nav-button"
                 onclick="openMemory()"
             >
-                <span>✦</span>
+                <span>âœ¦</span>
                 Memory
             </button>
 
@@ -208,7 +208,7 @@ window.MathJax = {
                 class="nav-button"
                 onclick="openSettings()"
             >
-                <span>⚙</span>
+                <span>âš™</span>
                 Settings
             </button>
 
@@ -243,7 +243,7 @@ window.MathJax = {
                     class="more-btn"
                     onclick="logout()"
                 >
-                    &#8943;
+                    â‹¯
                 </button>
 
             </div>
@@ -261,7 +261,7 @@ window.MathJax = {
                 class="mobile-menu"
                 onclick="toggleSidebar()"
             >
-                &#9776;
+                â˜°
             </button>
 
             <div
@@ -277,7 +277,7 @@ window.MathJax = {
                     id="status"
                     class="status ready"
                 >
-                    &#9679; READY
+                    â— READY
                 </span>
 
                 <button
@@ -285,7 +285,7 @@ window.MathJax = {
                     onclick="toggleTheme()"
                     title="Toggle theme"
                 >
-                    &#9676;
+                    â—
                 </button>
 
                 <button
@@ -293,7 +293,7 @@ window.MathJax = {
                     onclick="copyConversation()"
                     title="Copy conversation"
                 >
-                    ⧉
+                    â§‰
                 </button>
 
             </div>
@@ -312,7 +312,7 @@ window.MathJax = {
             >
 
                 <div class="welcome-orb">
-                    <span>✦</span>
+                    <span>âœ¦</span>
                 </div>
 
                 <h1>
@@ -386,7 +386,7 @@ window.MathJax = {
                             class="tool-btn"
                             onclick="document.getElementById('fileInput').click()"
                         >
-                            ＋
+                            ï¼‹
                         </button>
 
                         <button
@@ -395,7 +395,7 @@ window.MathJax = {
                             onclick="toggleVoice()"
                             title="Voice"
                         >
-                            🎙
+                            ðŸŽ™
                         </button>
 
                         <button
@@ -403,7 +403,7 @@ window.MathJax = {
                             onclick="recordAudio()"
                             title="Record audio"
                         >
-                            &#9679;
+                            â—
                         </button>
 
                     </div>
@@ -425,7 +425,7 @@ window.MathJax = {
                             class="send-button"
                             onclick="sendMessage()"
                         >
-                            &#8593;
+                            â†‘
                         </button>
 
                     </div>
@@ -436,7 +436,7 @@ window.MathJax = {
 
 
             <div class="composer-hint">
-                Enter to send &#183; Shift+Enter for a new line &#183; Ctrl+K search
+                Enter to send Â· Shift+Enter for a new line Â· Ctrl+K search
             </div>
 
         </section>
@@ -469,7 +469,7 @@ window.MathJax = {
                 class="close-btn"
                 onclick="closeAllModals()"
             >
-                X
+                Ã—
             </button>
 
         </div>
@@ -563,7 +563,7 @@ window.MathJax = {
                 class="close-btn"
                 onclick="closeAllModals()"
             >
-                X
+                Ã—
             </button>
 
         </div>
@@ -616,7 +616,7 @@ window.MathJax = {
                 class="close-btn"
                 onclick="closeAllModals()"
             >
-                X
+                Ã—
             </button>
 
         </div>
@@ -753,7 +753,7 @@ window.MathJax = {
     </button>
 </div>
 
-<script src="/static/app.js?v=final-auth-chess-202609?v=20260902_symbols2?v=fullrepair1"></script>
+<script src="/static/app.js?v=20260902_180028?v=fullrepair1"></script>
 
 
 <script src="/static/js/ada_controls.js"></script><script src="/static/js/ada_local_features.js"></script>

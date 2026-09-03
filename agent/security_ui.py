@@ -250,14 +250,7 @@ def startup_auth(parent):
     )
 
 
-def action_auth(
-    parent,
-    action
-):
+def action_auth(*args, **kwargs):
+    """Secondary action-password dialog disabled."""
+    return True
 
-    return password_dialog(
-        parent,
-        "GNG AI — Authorization Required",
-        "Authorize: " + action,
-        ACTION_PASSWORD
-    )

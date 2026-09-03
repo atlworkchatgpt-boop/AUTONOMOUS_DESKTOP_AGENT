@@ -14,3 +14,7 @@ dist/
 build/
 .vscode/
 *.log
+__pycache__/
+*.pyc
+.ada_final_backups/
+.pytest_cache/

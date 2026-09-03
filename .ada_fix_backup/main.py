@@ -336,7 +336,6 @@ async def google_login(
 
 
 @app.get("/auth/callback")
-@app.get("/auth/google/callback")
 async def google_callback(
     request: Request
 ):
@@ -1558,12 +1557,43 @@ async def chat(
         )
 
     # ADA_ACTION_PASSWORD_GATE_V1
-    #
-    # DISABLED.
-    #
-    # Local authentication is handled by the normal session.
-    # Once the user is signed in, computer actions do not
-    # require a second action-password verification step.
+    ada_plan = _ada_desktop_plan(message)
+    ada_computer_action = _ada_is_computer_action(
+        ada_plan
+    )
+
+    if ada_computer_action:
+
+        if user is None:
+            raise HTTPException(
+                status_code=401,
+                detail=(
+                    "Sign in before allowing Autonomous AI "
+                    "to control this computer."
+                )
+            )
+
+        if not _ada_password_exists(
+            user["id"]
+        ):
+            raise HTTPException(
+                status_code=428,
+                detail="PASSWORD_SETUP_REQUIRED"
+            )
+
+        supplied_password = request.headers.get(
+            "X-ADA-Action-Password",
+            ""
+        )
+
+        if not _ada_verify_password(
+            user["id"],
+            supplied_password
+        ):
+            raise HTTPException(
+                status_code=403,
+                detail="ACTION_PASSWORD_REQUIRED"
+            )
 
     chat_id = body.chat_id
 
@@ -3533,6 +3563,4 @@ async def ada_local_video_status(operation_id: str):
             "status": "error",
             "error": str(exc)
         }
-
-
 
