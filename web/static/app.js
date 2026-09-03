@@ -1,3 +1,11 @@
+﻿
+// ADA CREATOR / OWNER INFORMATION
+window.ADA_CREATOR_INFO = {
+    creator: "Shreyansh Ray",
+    owner: "Shreyansh Ray",
+    honorableMention: "Arnav Baliyan"
+};
+
 let currentChatId = null;
 let controller = null;
 let stopped = false;
@@ -212,7 +220,7 @@ function formatBasicMarkdown(text) {
 
     safe = safe.replace(
         /^[-*] (.+)$/gm,
-        "• $1"
+        "â€¢ $1"
     );
 
     for (
@@ -628,7 +636,7 @@ async function loadChats() {
             open.textContent =
                 (
                     pinned.includes(item.id)
-                        ? "★ "
+                        ? "â˜… "
                         : ""
                 )
                 +
@@ -656,8 +664,8 @@ async function loadChats() {
 
             pin.textContent =
                 pinned.includes(item.id)
-                    ? "★"
-                    : "☆";
+                    ? "â˜…"
+                    : "â˜†";
 
             pin.title =
                 "Pin";
@@ -681,7 +689,7 @@ async function loadChats() {
                 "history-tool";
 
             rename.textContent =
-                "✎";
+                "âœŽ";
 
             rename.title =
                 "Rename";
@@ -988,11 +996,14 @@ async function sendMessage() {
     if (!message)
         return;
 
-    const ownerQuestion = /^(who('s| is)? (your )?(owner|creator)|who (made|created) you|who owns you)[?! .]*$/i.test(message);
-    if (ownerQuestion) {
+    const ownerQuestion = /^(?:who(?:'s| is)?\s+(?:your\s+)?(?:owner|creator)|who\s+(?:made|created)\s+you|who\s+owns\s+you|who\s+is\s+the\s+(?:creator|owner)|who\s+is\s+your\s+(?:creator|owner)|who\s+created\s+you|who\s+made\s+you)[?!.\s]*$/i;
+    if (ownerQuestion.test(message)) {
         input.value = "";
         addMessage("user", message);
-        addMessage("assistant", "My creator and owner is Shreyansh Ray.");
+        addMessage(
+            "assistant",
+            "My creator and owner is Shreyansh Ray. Honorable Mention — Support: Arnav Baliyan."
+        );
         scrollBottom();
         return;
     }
@@ -1279,7 +1290,7 @@ async function uploadFiles() {
             "attachment-chip";
 
         chip.textContent =
-            "📎 " +
+            "ðŸ“Ž " +
             file.name;
 
         attachmentBar.appendChild(
@@ -1369,7 +1380,7 @@ function toggleVoice() {
         recognition = null;
 
         voiceButton.textContent =
-            "🎙";
+            "ðŸŽ™";
 
         return;
     }
@@ -1387,7 +1398,7 @@ function toggleVoice() {
         true;
 
     voiceButton.textContent =
-        "■";
+        "â– ";
 
     recognition.onresult =
         event => {
@@ -1418,7 +1429,7 @@ function toggleVoice() {
             recognition = null;
 
             voiceButton.textContent =
-                "🎙";
+                "ðŸŽ™";
         };
 
     recognition.onend =
@@ -1427,7 +1438,7 @@ function toggleVoice() {
             recognition = null;
 
             voiceButton.textContent =
-                "🎙";
+                "ðŸŽ™";
         };
 
     recognition.start();
@@ -1769,7 +1780,7 @@ async function loadMemories() {
 
             meta.textContent =
                 memory.category +
-                " • importance " +
+                " â€¢ importance " +
                 memory.importance;
 
             copy.appendChild(text);
@@ -1841,18 +1852,18 @@ async function clearMemories() {
    ============================================================ */
 
 const PIECES = {
-    r:"♜",
-    n:"♞",
-    b:"♝",
-    q:"♛",
-    k:"♚",
-    p:"♟",
-    R:"♖",
-    N:"♘",
-    B:"♗",
-    Q:"♕",
-    K:"♔",
-    P:"♙"
+    r:"\u265C",
+    n:"\u265E",
+    b:"\u265D",
+    q:"\u265B",
+    k:"\u265A",
+    p:"\u265F",
+    R:"\u2656",
+    N:"\u2658",
+    B:"\u2657",
+    Q:"\u2655",
+    K:"\u2654",
+    P:"\u2659"
 };
 
 
@@ -2548,7 +2559,7 @@ window.autonomousOutputRules = {
         "Use LaTeX delimiters for mathematical expressions. Use \\(...\\) for inline math and \\[...\\] for display math.",
 
     symbols:
-        "Use real Unicode symbols where appropriate, such as √, ∑, π, ∞, ≤, ≥, ≠, →, ±, ×, ÷, °, and superscripts/subscripts.",
+        "Use real Unicode symbols where appropriate, such as âˆš, âˆ‘, Ï€, âˆž, â‰¤, â‰¥, â‰ , â†’, Â±, ×, Ã·, Â°, and superscripts/subscripts.",
 
     code:
         "Place executable code inside fenced code blocks.",
@@ -2952,48 +2963,76 @@ window.addEventListener(
         app.parentElement.insertBefore(bar,app);
     }
 
-    function featureBar(){
-        if(document.getElementById("autonomousFinalFeatureBar"))return;
-        const input=first(SELECTORS.input);
-        if(!input)return;
+    
+function featureBar(){
+    const existing = document.querySelector(".ada-feature-bar");
+    if(existing) return existing;
 
-        const bar=document.createElement("div");
-        bar.id="autonomousFinalFeatureBar";
-        bar.innerHTML=`
-            <button type="button" onclick="autonomousFinalVoice()">🎙 Voice</button>
-            <button type="button" onclick="autonomousFinalImage()">🖼 Image</button>
-            <button type="button" onclick="autonomousFinalVideo()">🎬 Video</button>
-        `;
+    const bar = document.createElement("div");
+    bar.className = "ada-feature-bar";
 
-        const form=input.closest("form");
-        if(form && form.parentElement)form.parentElement.insertBefore(bar,form);
-        else if(input.parentElement)input.parentElement.insertBefore(bar,input);
+    bar.innerHTML = `
+        <button type="button" class="ada-feature-btn" id="adaImageBtn">
+            <span>Image</span>
+        </button>
+
+        <button type="button" class="ada-feature-btn" id="adaVideoBtn">
+            <span>Video</span>
+        </button>
+    `;
+
+    const inputArea =
+        document.querySelector(".ada-input-area") ||
+        document.querySelector(".chat-input-area") ||
+        document.querySelector("textarea")?.parentElement;
+
+    if(inputArea && inputArea.parentElement){
+        inputArea.parentElement.insertBefore(bar, inputArea);
     }
 
-    window.autonomousFinalVoice=function(){
-        const Recognition=window.SpeechRecognition||window.webkitSpeechRecognition;
-        if(!Recognition){
-            alert("Voice input is not supported by this browser.");
-            return;
-        }
-        const recognition=new Recognition();
-        recognition.continuous=false;
-        recognition.interimResults=false;
-        recognition.lang=navigator.language||"en-US";
-        recognition.onstart=()=>{if(typeof window.showToast==="function")window.showToast("Listening...");};
-        recognition.onresult=(event)=>{
-            let text="";
-            for(let i=0;i<event.results.length;i++)text+=event.results[i][0].transcript;
-            const input=first(SELECTORS.input);
-            if(!input)return;
-            input.value=text.trim();
-            input.dispatchEvent(new Event("input",{bubbles:true}));
-            if(typeof window.sendMessage==="function")window.sendMessage();
-        };
-        recognition.start();
-    };
+    const imageBtn = bar.querySelector("#adaImageBtn");
+    const videoBtn = bar.querySelector("#adaVideoBtn");
 
-    async function mediaRequest(url,prompt){
+    if(imageBtn){
+        imageBtn.addEventListener("click", function(){
+            const input = document.createElement("input");
+            input.type = "file";
+            input.accept = "image/*";
+
+            input.onchange = function(){
+                if(typeof window.handleImageUpload === "function"){
+                    window.handleImageUpload(input.files[0]);
+                }else if(typeof window.mediaRequest === "function"){
+                    window.mediaRequest("image", input.files[0]);
+                }
+            };
+
+            input.click();
+        });
+    }
+
+    if(videoBtn){
+        videoBtn.addEventListener("click", function(){
+            const input = document.createElement("input");
+            input.type = "file";
+            input.accept = "video/*";
+
+            input.onchange = function(){
+                if(typeof window.handleVideoUpload === "function"){
+                    window.handleVideoUpload(input.files[0]);
+                }else if(typeof window.mediaRequest === "function"){
+                    window.mediaRequest("video", input.files[0]);
+                }
+            };
+
+            input.click();
+        });
+    }
+
+    return bar;
+}
+
+async function mediaRequest(url,prompt){
         const response=await fetch(url,{
             method:"POST",
             headers:{"Content-Type":"application/json"},
@@ -3101,7 +3140,7 @@ window.addEventListener(
             const game=document.getElementById("chessGame");
             if(setup)setup.classList.add("hidden");
             if(game)game.classList.remove("hidden");
-            if(status)status.textContent="Your turn • "+data.difficulty;
+            if(status)status.textContent="Your turn â€¢ "+data.difficulty;
             drawBoard();
         }catch(error){
             if(status)status.textContent="Chess error: "+error.message;
@@ -3149,10 +3188,10 @@ window.addEventListener(
             );
 
         const pieces = {
-            r:"♜", n:"♞", b:"♝", q:"♛",
-            k:"♚", p:"♟",
-            R:"♖", N:"♘", B:"♗", Q:"♕",
-            K:"♔", P:"♙"
+            r:"\u265C", n:"\u265E", b:"\u265D", q:"\u265B",
+            k:"\u265A", p:"\u265F",
+            R:"\u2656", N:"\u2658", B:"\u2657", Q:"\u2655",
+            K:"\u2654", P:"\u2659"
         };
 
         /* -------------------------------------------------
@@ -3515,7 +3554,8 @@ window.addEventListener(
                         ghost.remove();
                         resolve();
 
-                    }, 0
+                    },
+                    340
                 );
             }
         );
@@ -3809,7 +3849,56 @@ window.addEventListener(
 
 
 
+/* ADA_ONE_CLEAN_CONTROLLER_START */
+(function(){
+  "use strict";
+  function chatBox(){
+    return document.getElementById("chat") || document.querySelector(".chat") || document.querySelector(".messages");
+  }
+  function bottom(){ const c=chatBox(); if(c) requestAnimationFrame(()=>{c.scrollTop=c.scrollHeight;}); }
+  window.adaScrollBottom=bottom;
+  window.addEventListener("load",()=>{ bottom(); setTimeout(bottom,250); });
+  window.addEventListener("resize",bottom);
+  const c=chatBox();
+  if(c){ new MutationObserver(bottom).observe(c,{childList:true,subtree:true,characterData:true}); }
 
+  async function history(){
+    try{
+      const r=await fetch("/api/v2/chess/history",{cache:"no-store"});
+      const d=await r.json();
+      if(!r.ok) throw new Error(d.detail||"Could not load chess history");
+      let old=document.getElementById("adaHistoryModal"); if(old) old.remove();
+      const overlay=document.createElement("div"); overlay.id="adaHistoryModal"; overlay.className="ada-history-overlay";
+      const card=document.createElement("div"); card.className="ada-history-card";
+      card.innerHTML='<button class="ada-history-close" type="button">Close</button><h2>Chess history</h2><div id="adaHistoryRows"></div>';
+      overlay.appendChild(card); document.body.appendChild(overlay);
+      card.querySelector(".ada-history-close").onclick=()=>overlay.remove();
+      const rows=card.querySelector("#adaHistoryRows");
+      if(!d.games.length){ rows.textContent="No saved games yet."; return; }
+      d.games.forEach(g=>{
+        const row=document.createElement("div"); row.className="ada-history-row";
+        const info=document.createElement("div"); info.textContent=`${g.started_at||""} | ${g.player_color} | ${g.difficulty} | ${g.result||"In progress"}`;
+        const b=document.createElement("button"); b.type="button"; b.textContent="Review + analysis";
+        b.onclick=async()=>{
+          const rr=await fetch(`/api/v2/chess/analyze/${encodeURIComponent(g.game_id)}`); const x=await rr.json();
+          if(!rr.ok){ alert(x.detail||"Analysis failed"); return; }
+          alert(x.analysis_text || JSON.stringify(x,null,2));
+        };
+        row.append(info,b); rows.appendChild(row);
+      });
+    }catch(e){ alert("Chess history: "+e.message); }
+  }
+  window.openChessHistory=history;
+  window.addEventListener("load",()=>{
+    const modal=document.getElementById("chessModal");
+    if(modal && !document.getElementById("adaChessHistoryButton")){
+      const b=document.createElement("button"); b.id="adaChessHistoryButton"; b.type="button"; b.textContent="History / Analysis"; b.className="secondary-button";
+      b.onclick=history;
+      const status=document.getElementById("chessStatus"); (status?.parentElement || modal).appendChild(b);
+    }
+  });
+})();
+/* ADA_ONE_CLEAN_CONTROLLER_END */
 
 /* ============================================================
    FINAL CHESS HISTORY REVIEW OVERRIDE
@@ -4904,18 +4993,18 @@ window.addEventListener(
     function adaPiece(piece) {
 
         const pieces = {
-            K: "♔",
-            Q: "♕",
-            R: "♖",
-            B: "♗",
-            N: "♘",
-            P: "♙",
+            K: "â™”",
+            Q: "â™•",
+            R: "â™–",
+            B: "â™—",
+            N: "â™˜",
+            P: "â™™",
 
-            k: "♚",
-            q: "♛",
-            r: "♜",
-            b: "♝",
-            n: "♞",
+            k: "â™š",
+            q: "â™›",
+            r: "â™œ",
+            b: "â™",
+            n: "â™ž",
             p: "♟"
         };
 
@@ -5324,7 +5413,7 @@ window.addEventListener(
         if (state.check) {
 
             adaChessStatus(
-                "♔ CHECK — the king is under attack."
+                "â™” CHECK â€” the king is under attack."
             );
 
         } else if (state.game_over) {
@@ -6056,8 +6145,8 @@ window.addEventListener(
             if (
                 text.includes("image") ||
                 text.includes("video") ||
-                text.includes("🎨") ||
-                text.includes("🎬")
+                text.includes("ðŸŽ¨") ||
+                text.includes("ðŸŽ¬")
             ) {
                 bar.remove();
             }
@@ -6111,18 +6200,18 @@ window.addEventListener(
         "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR";
 
     const PIECES = {
-        "K": "♔",
-        "Q": "♕",
-        "R": "♖",
-        "B": "♗",
-        "N": "♘",
-        "P": "♙",
-        "k": "♚",
-        "q": "♛",
-        "r": "♜",
-        "b": "♝",
-        "n": "♞",
-        "p": "♟"
+        "K": "\u2654",
+        "Q": "\u2655",
+        "R": "\u2656",
+        "B": "\u2657",
+        "N": "\u2658",
+        "P": "\u2659",
+        "k": "\u265A",
+        "q": "\u265B",
+        "r": "\u265C",
+        "b": "\u265D",
+        "n": "\u265E",
+        "p": "\u265F"
     };
 
     let cleanGameId = null;
@@ -6403,7 +6492,7 @@ window.addEventListener(
                     data.engine_move
                         ? "Computer played " +
                           data.engine_move +
-                          " — your move"
+                          " â€” your move"
                         : "Your move"
                 );
             }
@@ -6498,7 +6587,7 @@ window.addEventListener(
                 );
             } else if (cleanColor === "black") {
                 showStatus(
-                    "Computer has started — your move"
+                    "Computer has started â€” your move"
                 );
             } else {
                 showStatus("Your move");
@@ -7434,7 +7523,7 @@ window.addEventListener(
     }
 
     if (
-        document.readyState === "loading" {
+        document.readyState === "loading") {
 
         document.addEventListener(
             "DOMContentLoaded",
@@ -7551,7 +7640,7 @@ window.addEventListener(
                 (data.result || "finished")
             );
         } else if (data.check) {
-            status("CHECK — the king is under attack.");
+            status("CHECK â€” the king is under attack.");
         } else {
             status("Your move");
         }
@@ -8005,59 +8094,166 @@ window.addEventListener(
  /* ADA_CHESS_FINAL_PERFORMANCE_FIX_END */
 
 
-/* ADA_FINAL_CHESS_BUTTON_AND_PERFORMANCE_FIX */
-(function(){
+
+
+/* ==========================================================
+   ADA_FINAL_WINDOWS_UI_POLICY_V3
+   ========================================================== */
+(function () {
     "use strict";
 
-    let chessActionBusy = false;
+    function isLocalADA() {
+        const h = String(location.hostname || "").toLowerCase();
 
-    function bindChessButton(id, handlerName){
-        const button = document.getElementById(id);
-        if(!button || button.dataset.adaBound === "1") return;
+        return (
+            h === "localhost" ||
+            h === "127.0.0.1" ||
+            h === "::1" ||
+            h === "0.0.0.0"
+        );
+    }
 
-        button.dataset.adaBound = "1";
+    function textOf(el) {
+        return String(
+            el.innerText ||
+            el.textContent ||
+            el.getAttribute("aria-label") ||
+            el.getAttribute("title") ||
+            ""
+        ).trim().toLowerCase();
+    }
 
-        button.addEventListener("click", async function(event){
-            event.preventDefault();
-            event.stopPropagation();
+    function killMediaButtons() {
+        const explicitSelectors = [
+            "#voiceButton",
+            "#imageButton",
+            "#videoButton",
+            "#generateImage",
+            "#generateVideo",
+            "[data-action='voice']",
+            "[data-action='image']",
+            "[data-action='video']",
+            "[data-feature='voice']",
+            "[data-feature='image']",
+            "[data-feature='video']",
+            ".voice-button",
+            ".image-button",
+            ".video-button"
+        ];
 
-            if(chessActionBusy) return;
-            if(typeof window[handlerName] !== "function"){
-                console.error("ADA Chess handler missing:", handlerName);
-                return;
-            }
+        explicitSelectors.forEach(selector => {
+            try {
+                document.querySelectorAll(selector).forEach(el => el.remove());
+            } catch (_) {}
+        });
 
-            chessActionBusy = true;
-            button.disabled = true;
+        document.querySelectorAll("button").forEach(button => {
+            const label = textOf(button);
 
-            try{
-                await window[handlerName]();
-            }catch(error){
-                console.error("Chess control error:", error);
-            }finally{
-                chessActionBusy = false;
-                button.disabled = false;
+            const mediaButton =
+                label === "voice" ||
+                label === "image" ||
+                label === "video" ||
+                label === "generate image" ||
+                label === "generate video" ||
+                label === "voice input" ||
+                label === "image generation" ||
+                label === "video generation";
+
+            if (mediaButton) {
+                button.remove();
             }
         });
     }
 
-    function bind(){
-        bindChessButton("adaChessRestartButton","adaChessRestart");
-        bindChessButton("adaChessDrawButton","adaChessDraw");
-        bindChessButton("adaChessResignButton","adaChessResign");
-        bindChessButton("adaChessChangeComputerButton","adaChessChangeComputer");
+    function publicGuestMode() {
+        if (isLocalADA()) {
+            return;
+        }
 
-        bindChessButton("chessRestartButton","adaChessRestart");
-        bindChessButton("chessDrawButton","adaChessDraw");
-        bindChessButton("chessResignButton","adaChessResign");
-        bindChessButton("chessChangeComputerButton","adaChessChangeComputer");
+        document.querySelectorAll("button,a").forEach(el => {
+            const label = textOf(el);
+
+            if (
+                label === "sign in" ||
+                label === "create account" ||
+                label.includes("sign in with google") ||
+                label.includes("continue with google")
+            ) {
+                el.remove();
+            }
+        });
+
+        const loginView = document.getElementById("loginView");
+
+        if (loginView) {
+            loginView.style.display = "none";
+        }
+
+        try {
+            if (typeof window.continueGuest === "function") {
+                window.continueGuest();
+            }
+            else if (typeof window.ensureGuest === "function") {
+                window.ensureGuest();
+            }
+        }
+        catch (_) {}
     }
 
-    if(document.readyState === "loading"){
-        document.addEventListener("DOMContentLoaded",bind,{once:true});
-    }else{
-        bind();
+    function enforce() {
+        killMediaButtons();
+        publicGuestMode();
     }
 
-    window.addEventListener("load",bind,{once:false});
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", enforce, {
+            once: true
+        });
+    }
+    else {
+        enforce();
+    }
+
+    setTimeout(enforce, 250);
+    setTimeout(enforce, 800);
+    setTimeout(enforce, 1600);
+
+    try {
+        const observer = new MutationObserver(() => {
+            enforce();
+        });
+
+        observer.observe(document.documentElement, {
+            childList: true,
+            subtree: true
+        });
+    }
+    catch (_) {}
+
+    window.ADA_IS_LOCAL = isLocalADA;
 })();
+
+
+/* ==========================================================
+   DISABLED MEDIA APIs
+   ========================================================== */
+
+window.adaGenerateImage = async function () {
+    throw new Error("Image generation is disabled.");
+};
+
+window.adaGenerateVideo = async function () {
+    throw new Error("Video generation is disabled.");
+};
+
+window.autonomousFinalImage = async function () {
+    throw new Error("Image generation is disabled.");
+};
+
+window.autonomousFinalVideo = async function () {
+    throw new Error("Video generation is disabled.");
+};
+
+
+

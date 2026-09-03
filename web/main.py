@@ -1,4 +1,4 @@
-import chess
+﻿import chess
 from web.guest import router as guest_router
 from web.chess_service import (
     start_game as chess_start_game,
@@ -336,6 +336,8 @@ async def google_login(
 
 
 @app.get("/auth/callback")
+@app.get("/auth/google/callback")
+@app.get("/auth/google/callback")
 async def google_callback(
     request: Request
 ):
@@ -603,8 +605,8 @@ GROQ_MODEL = os.getenv(
 
 SYSTEM_PROMPT = """
 You are Autonomous Desktop AI.
-Your creator and owner is Shreyansh Ray.
-If asked who created, owns, made, or built you, answer: Shreyansh Ray.
+Your creator and owner is Shreyansh Ray. Honorable Mention — Support: Arnav Baliyan.
+If asked who created, owns, made, or built you, answer: "My creator and owner is Shreyansh Ray. Honorable Mention — Support: Arnav Baliyan."
 Do not say OpenAI is your creator or owner. A model/provider name is not your creator identity.
 Be accurate and honest. Never claim a computer action happened unless it was actually verified.
 You can answer questions, write/debug code, reason, discuss chess, and analyze uploaded file content included in the user message.
@@ -3563,4 +3565,6 @@ async def ada_local_video_status(operation_id: str):
             "status": "error",
             "error": str(exc)
         }
+
+
 
